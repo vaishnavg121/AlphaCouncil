@@ -40,12 +40,19 @@ class Settings(BaseSettings):
             raise ValueError("ALPACA_LIVE_TRADE=true is prohibited by AlphaCouncil safety policy")
         if self.trading_mode != "paper":
             raise ValueError("TRADING_MODE must be paper during development")
+        if self.enable_execution:
+            raise ValueError("ENABLE_EXECUTION=true is prohibited during M0")
         return self
 
     @property
     def alpaca_credentials_configured(self) -> bool:
         """Whether both backend-only Alpaca credentials are present, without exposing them."""
         return self.alpaca_api_key is not None and self.alpaca_secret_key is not None
+
+    @property
+    def alpaca_environment_credentials_partial(self) -> bool:
+        """Whether exactly one API-key environment credential was supplied."""
+        return (self.alpaca_api_key is None) != (self.alpaca_secret_key is None)
 
     @property
     def nvidia_credentials_configured(self) -> bool:

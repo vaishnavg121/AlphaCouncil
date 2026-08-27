@@ -51,6 +51,13 @@ def test_non_paper_mode_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
         settings_without_dotenv()
 
 
+def test_execution_cannot_be_enabled_during_m0(monkeypatch: pytest.MonkeyPatch) -> None:
+    clear_settings_environment(monkeypatch)
+    monkeypatch.setenv("ENABLE_EXECUTION", "true")
+    with pytest.raises(ValidationError, match="prohibited during M0"):
+        settings_without_dotenv()
+
+
 def test_missing_credentials_cannot_enable_execution(monkeypatch: pytest.MonkeyPatch) -> None:
     clear_settings_environment(monkeypatch)
     settings = settings_without_dotenv()

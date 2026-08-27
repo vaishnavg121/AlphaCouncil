@@ -1,7 +1,4 @@
-"""Safe NVIDIA LLM prerequisite diagnostic.
-
-No request is made until both a credential and a model are configured locally.
-"""
+"""Safe NVIDIA LLM connectivity diagnostic."""
 
 from __future__ import annotations
 
@@ -12,18 +9,20 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
 from app.core.config import Settings
+from app.llm.nvidia import NvidiaLLMProvider
 
 
 def main() -> int:
     settings = Settings()
-    if not settings.nvidia_credentials_configured:
-        print("BLOCKED — NVIDIA_API_KEY REQUIRED")
-        return 2
-    if not settings.llm_model:
-        print("BLOCKED — LLM_MODEL REQUIRED before a connectivity request")
-        return 2
-    print("BLOCKED — provider endpoint selection is deferred to M0; no request made")
-    return 2
+    health = NvidiaLLMProvider(settings).healthcheck()
+    print(f"Provider: {settings.llm_provider}")
+    print(f"Model: {settings.llm_model or 'MISSING'}")
+    print(f"Connectivity: {health.status}")
+    if health.latency_ms is not None:
+        print(f"Latency: {health.latency_ms}ms")
+    if health.message is not None:
+        print(f"Detail: {health.message}")
+    return 0 if health.status.value == "PASS" else 2
 
 
 if __name__ == "__main__":

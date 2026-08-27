@@ -6,4 +6,4 @@ LLMs may eventually propose decisions, but they are not financial authority. Det
 
 Credentials remain backend-only: no frontend code may receive `ALPACA_SECRET_KEY` or `NVIDIA_API_KEY`. MCP access will be least-privilege; research agents have no execution authority. Arbitrary LLM shell execution is prohibited. Direct access to close-all, cancel-all, option exercise, or similar destructive brokerage operations must never be available to an unconstrained model.
 
-Kill-switch support, controlled paper orders, and order lifecycle behavior are deliberately deferred to future milestones.
+M0 creates `TradingClient` instances only with `paper=True`, exposes only account/clock/asset/positions/orders reads through `AlpacaGateway`, and has no mutation methods. `ENABLE_EXECUTION=true` fails configuration validation during M0. Kill-switch support, controlled paper orders, and order lifecycle behavior are deliberately deferred to future milestones.

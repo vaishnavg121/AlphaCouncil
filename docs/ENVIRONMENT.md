@@ -41,7 +41,7 @@ ENABLE_EXECUTION=false
 ALPACA_LIVE_TRADE=false
 ```
 
-For NVIDIA, set `LLM_PROVIDER=nvidia`, `LLM_MODEL`, and `NVIDIA_API_KEY` locally. `scripts/check_llm.py` intentionally does not call a provider until endpoint policy is selected in M0.
+For NVIDIA, set `LLM_PROVIDER=nvidia`, `LLM_MODEL`, and `NVIDIA_API_KEY` locally. M0's `scripts/check_llm.py` sends one deterministic, 30-second-bounded request to NVIDIA's OpenAI-compatible endpoint. It never logs the authorization header or key and does not silently change models.
 
 ## Common safe diagnostics
 
@@ -52,3 +52,9 @@ uv run python scripts/check_llm.py
 ```
 
 `check_alpaca.py` only reads account, clock, and AAPL asset metadata. It submits no orders.
+
+## Alpaca authentication
+
+M0 resolves a complete credential bundle in this order: complete `ALPACA_API_KEY` plus `ALPACA_SECRET_KEY` environment pair; active paper-safe Alpaca CLI OAuth profile; active paper-safe CLI API-key pair. Partial values are never merged. The resolver reads the active profile from standard user configuration locations at runtime (including `~/.config/alpaca`), does not modify it, and never copies it to the repository or `.env`.
+
+The standalone Alpaca MCP route remains deferred: it may require API keys, whereas the verified M0 path uses CLI OAuth. Do not copy OAuth values merely to satisfy MCP.

@@ -75,8 +75,6 @@ Python tests, Ruff lint, mypy typecheck, and the safe configuration diagnostic p
 
 4. Configure Alpaca paper credentials and NVIDIA credentials locally only in an untracked `.env` copied from `.env.example`. Never paste them into chat or commit them.
 
-## Ready for M0?
+## Bootstrap handoff
 
-NO
-
-Blockers: Go/Alpaca CLI, Alpaca paper authentication/read-only verification, NVIDIA configuration, and npm repair. The Python bootstrap itself is ready to verify.
+This PRE-M0 report is superseded by [M0_REPORT.md](M0_REPORT.md). The later milestone verified OAuth-profile Alpaca paper reads and retained the paper-only safety invariants.
