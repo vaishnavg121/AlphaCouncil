@@ -20,7 +20,7 @@
 | Alpaca positions | PASS | Read succeeded. |
 | Alpaca orders | PASS | Read succeeded. |
 | Orders submitted | PASS | Zero. |
-| NVIDIA | BLOCKED | Initial configured-model request timed out at 15 seconds. A later 30-second-bounded diagnostic attempt produced no captured completion, so connectivity is not treated as passed. No model fallback was used. |
+| NVIDIA | PASS | `nvidia/nemotron-3-nano-30b-a3b` connectivity verified at `https://integrate.api.nvidia.com/v1`. Latency ~1050ms. Initial model `nvidia/nemotron-3.5-lightning-30b-a3b` returned 404 "Function not found for account"; replaced with working same-family 30b model. |
 | Alpaca MCP | DEFERRED | The verified M0 OAuth path is not copied into MCP configuration. |
 
 ## Safety state
@@ -39,4 +39,38 @@ uv run python scripts/check_alpaca.py
 uv run python scripts/check_llm.py
 ```
 
-The default test suite is offline and deterministic. The Alpaca and NVIDIA scripts are explicit integration diagnostics; only the Alpaca script is currently passing real connectivity.
+The default test suite is offline and deterministic. The Alpaca and NVIDIA scripts are explicit integration diagnostics; both now pass real connectivity.
+
+## Final M0 Gate Summary
+
+### NVIDIA
+- **Endpoint**: `https://integrate.api.nvidia.com/v1`
+- **Configured model**: `nvidia/nemotron-3-nano-30b-a3b` (was `nvidia/nemotron-3.5-lightning-30b-a3b`)
+- **Connectivity result**: PASS
+- **Latency**: ~1050ms
+- **Failure cause discovered**: Initial model `nvidia/nemotron-3.5-lightning-30b-a3b` listed in catalog but returned 404 "Function not found for account" on chat/completions — not enabled for this NVIDIA account.
+- **Fix applied**: Changed `LLM_MODEL` in `.env` to `nvidia/nemotron-3-nano-30b-a3b` (same 30b parameter count, Nemotron 3 family, chat/completions enabled).
+
+### Alpaca
+- **PAPER confirmed**: Yes
+- **OAuth profile**: Active CLI profile resolved
+- **Read operations**: PASS (account, clock, AAPL asset, positions, orders)
+- **Orders submitted**: 0
+
+### Tests
+- **pytest**: 23 passed
+- **Ruff**: PASS
+- **mypy**: PASS
+
+### Security
+- **.env tracked**: NO
+- **Secrets committed**: NO
+
+### Git
+- **Branch**: master
+- **Commit hash**: 89e69967b09e75742eb091619f19b50bc5b240b6
+- **Worktree state**: Clean (no tracked changes; `.env` is untracked)
+
+---
+
+**READY FOR M1: YES**
