@@ -1,4 +1,4 @@
-"""Fail-closed configuration for the PRE-M0 foundation.
+"""Fail-closed configuration for the AlphaCouncil foundation.
 
 This module deliberately contains no broker client construction or network activity.
 """
@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     alpaca_api_key: SecretStr | None = None
     alpaca_secret_key: SecretStr | None = None
     alpaca_live_trade: bool = False
+    alpaca_data_feed: Literal["iex", "sip", "otc"] = "iex"
 
     llm_provider: str = "nvidia"
     llm_model: str | None = None
