@@ -5,7 +5,6 @@ from __future__ import annotations
 from app.committee.agents.base import CommitteeAgent
 from app.committee.models import AgentRole
 from app.committee.prompts import QUANT_PROMPT_V1
-from app.core.config import Settings
 
 
 class QuantAgent(CommitteeAgent):

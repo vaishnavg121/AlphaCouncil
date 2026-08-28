@@ -12,6 +12,12 @@ class AccountSnapshot(BaseModel):
     currency: str | None = None
     buying_power: str | None = None
     portfolio_value: str | None = None
+    equity: str | None = None
+    cash: str | None = None
+    initial_margin: str | None = None
+    maintenance_margin: str | None = None
+    daytrade_count: int | None = None
+    account_id: str | None = None
 
 
 class MarketClock(BaseModel):
@@ -40,6 +46,9 @@ class PositionSnapshot(BaseModel):
     symbol: str
     qty: str
     side: str | None = None
+    market_value: str | None = None
+    avg_entry_price: str | None = None
+    unrealized_pl: str | None = None
 
 
 class OrderSnapshot(BaseModel):

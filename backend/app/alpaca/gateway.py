@@ -35,6 +35,12 @@ class AlpacaGateway:
             currency=_optional_string(account, "currency"),
             buying_power=_optional_string(account, "buying_power"),
             portfolio_value=_optional_string(account, "portfolio_value"),
+            equity=_optional_string(account, "equity"),
+            cash=_optional_string(account, "cash"),
+            initial_margin=_optional_string(account, "initial_margin"),
+            maintenance_margin=_optional_string(account, "maintenance_margin"),
+            daytrade_count=_field(account, "daytrade_count") if hasattr(account, "daytrade_count") else None,
+            account_id=_optional_string(account, "id"),
         )
 
     def get_clock(self) -> MarketClock:
@@ -63,6 +69,9 @@ class AlpacaGateway:
                 symbol=str(_field(position, "symbol")),
                 qty=str(_field(position, "qty")),
                 side=_optional_string(position, "side"),
+                market_value=_optional_string(position, "market_value"),
+                avg_entry_price=_optional_string(position, "avg_entry_price"),
+                unrealized_pl=_optional_string(position, "unrealized_pl"),
             )
             for position in self._client.get_all_positions()
         ]

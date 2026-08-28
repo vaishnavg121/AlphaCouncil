@@ -6,9 +6,7 @@ with stable evidence IDs for agent grounding.
 
 from __future__ import annotations
 
-from datetime import datetime
 from decimal import Decimal
-from typing import Literal
 
 from app.committee.models import (
     EvidenceCategory,
@@ -17,7 +15,6 @@ from app.committee.models import (
     EvidenceSource,
 )
 from app.discovery.models import Candidate
-from app.market.models import MarketState, SignalDirection
 
 
 # Stable evidence ID constants
@@ -81,7 +78,7 @@ class EvidenceId:
     E_DQ_WARNINGS = "E_DQ_WARNINGS"
 
     # Discovery Reasons
-    E_DISC_REASONS = "E_DISC_REASONS"
+    E_DISCOVERY_REASONS = "E_DISCOVERY_REASONS"
 
 
 def _fmt_pct(value: Decimal | None) -> str:
@@ -400,7 +397,7 @@ def build_evidence_packet(candidate: Candidate) -> EvidencePacket:
     # Discovery Reasons
     if candidate.opportunity_score.reasons:
         evidence_items.append(EvidenceItem(
-            id=EvidenceId.E_DISC_REASONS,
+            id=EvidenceId.E_DISCOVERY_REASONS,
             category=EvidenceCategory.DISCOVERY,
             label="Discovery Reasons",
             value="; ".join(candidate.opportunity_score.reasons),

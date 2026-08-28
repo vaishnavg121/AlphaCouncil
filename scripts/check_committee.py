@@ -11,10 +11,10 @@ from pathlib import Path
 # Allow direct execution from any current directory without installing a package.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
+from app.committee import create_committee_service
 from app.core.config import Settings
 from app.discovery import create_discovery_service
 from app.market import AlpacaMarketDataGateway
-from app.committee import create_committee_service
 
 
 def safe_print(text: str) -> None:
@@ -88,7 +88,7 @@ def main() -> int:
         result = committee_service.evaluate_candidate(top_candidate)
 
         safe_print("\n=== COMMITTEE RESULT ===")
-        safe_print(f"Status: PASS")
+        safe_print("Status: PASS")
         safe_print(f"Symbol: {result.candidate_symbol}")
         safe_print(f"Runtime: {result.total_runtime_ms}ms")
         safe_print(f"Total LLM calls: {result.total_llm_calls}")
@@ -103,7 +103,7 @@ def main() -> int:
 
         # Disagreement
         if result.disagreement_report:
-            safe_print(f"\n--- DISAGREEMENT ---")
+            safe_print("\n--- DISAGREEMENT ---")
             safe_print(f"  Severity: {result.disagreement_report.severity}")
             safe_print(f"  Spread: {result.disagreement_report.stance_spread}")
             if result.disagreement_report.bullish_agents:
@@ -117,7 +117,7 @@ def main() -> int:
             safe_print(f"  {op.agent_role.value}: {op.stance.value} (conf={op.confidence:.2f})")
 
         # Decision
-        safe_print(f"\n--- DECISION ---")
+        safe_print("\n--- DECISION ---")
         safe_print(f"  Decision: {result.decision.decision}")
         if result.decision.direction:
             safe_print(f"  Direction: {result.decision.direction}")
@@ -128,7 +128,7 @@ def main() -> int:
 
         # Trade thesis
         if result.trade_thesis:
-            safe_print(f"\n--- TRADE THESIS ---")
+            safe_print("\n--- TRADE THESIS ---")
             safe_print(f"  Symbol: {result.trade_thesis.symbol}")
             safe_print(f"  Direction: {result.trade_thesis.proposed_direction}")
             safe_print(f"  Confidence: {result.trade_thesis.committee_confidence:.2f}")

@@ -3,33 +3,25 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Literal
 
-from app.committee.agents.base import CommitteeAgent
-from app.committee.agents.quant import QuantAgent
-from app.committee.agents.bull import BullAgent
 from app.committee.agents.bear import BearAgent
+from app.committee.agents.bull import BullAgent
+from app.committee.agents.quant import QuantAgent
 from app.committee.agents.regime import RegimeAgent
 from app.committee.aggregation import CommitteeAggregator
 from app.committee.disagreement import detect_disagreement, generate_challenges, run_rebuttal_round
 from app.committee.evidence import build_evidence_packet
 from app.committee.models import (
-    AgentOpinion,
     AgentResult,
-    AgentRole,
     AgentStatus,
-    CommitteeResult,
     CommitteeDecision,
     CommitteeDecisionModel,
-    DisagreementReport,
+    CommitteeResult,
     DisagreementSeverity,
-    EvidencePacket,
     TradeThesis,
 )
 from app.core.config import Settings
 from app.discovery.models import Candidate
-from app.discovery.service import create_discovery_service
-from app.market import MarketStateBuilder
 from app.market.gateway import MarketDataGateway
 from app.market.models import SignalDirection
 
@@ -131,15 +123,13 @@ class InvestmentCommitteeService:
             ) for o in final_opinions
         ]
 
-        # Add failed/abstained agents from initial results
+        # Add failed agents from initial results
         for init in initial_results:
             if init.status != AgentStatus.SUCCESS or not init.opinion:
                 agent_results.append(init)
-            elif init.opinion.stance == "ABSTAIN":
-                agent_results.append(init)
 
         aggregation_result = self._aggregator.aggregate(
-            [r for r in agent_results if r.status == AgentStatus.SUCCESS and r.opinion and r.opinion.stance != "ABSTAIN"],
+            agent_results,
             initial_disagreement=disagreement,
             final_disagreement=final_disagreement,
         )

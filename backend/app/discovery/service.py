@@ -18,8 +18,8 @@ from app.discovery.models import (
     CandidateRejection,
     CandidateSet,
     PreliminaryCandidate,
-    UniverseMode,
     RejectionReason,
+    UniverseMode,
 )
 from app.discovery.scoring import compute_opportunity_score, rank_candidates, select_top_k
 from app.discovery.screening import BulkScreener

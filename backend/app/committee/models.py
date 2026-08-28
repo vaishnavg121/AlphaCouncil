@@ -8,8 +8,6 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Literal
-from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 

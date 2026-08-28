@@ -4,19 +4,13 @@ from __future__ import annotations
 
 from collections import Counter
 from decimal import Decimal
-from typing import Literal, Protocol
+from typing import Protocol
 
 from app.committee.models import (
-    AgentOpinion,
-    AgentRole,
+    AgentResult,
     AgentStance,
     CommitteeDecision,
-    CommitteeDecisionModel,
-    DisagreementReport,
     DisagreementSeverity,
-    NoTradeReason,
-    STANCE_VALUE,
-    SignalDirection,
 )
 
 
@@ -49,10 +43,10 @@ DISAGREEMENT_PENALTIES = {
 
 
 def aggregate_opinions(
-    opinions: list[object],
+    opinions: list[AgentResult],
     weights: dict[str, float] | None = None,
     disagreement: object | None = None,
-) -> dict[str, object]:
+) -> dict:
     """Aggregate agent opinions into committee decision deterministically.
 
     Returns:
@@ -89,8 +83,8 @@ def aggregate_opinions(
 
     # Check weight coverage
     successful_weight = sum(
-        norm_weights.get(o.agent_role.value, Decimal("0"))
-        for o in valid_opinions
+        (norm_weights.get(o.agent_role.value, Decimal("0")) for o in valid_opinions),
+        Decimal("0")
     )
     if successful_weight < Decimal(str(MIN_SUCCESSFUL_WEIGHT)):
         return {
@@ -138,7 +132,7 @@ def aggregate_opinions(
     committee_score = max(Decimal("0"), min(Decimal("100"), base_score))
 
     # Committee confidence
-    avg_confidence = sum(r.opinion.confidence for r in valid_opinions) / len(valid_opinions)
+    avg_confidence = sum((r.opinion.confidence for r in valid_opinions), Decimal("0")) / Decimal(str(len(valid_opinions)))
     committee_confidence = avg_confidence * disagreement_penalty
 
     # Determine decision
@@ -241,9 +235,9 @@ class CommitteeAggregator:
 
     def aggregate(
         self,
-        agent_results: list,
-        initial_disagreement: object,
-        final_disagreement: object,
+        agent_results: list[AgentResult],
+        initial_disagreement: DisagreementLike | None = None,
+        final_disagreement: DisagreementLike | None = None,
     ) -> dict:
         """Aggregate agent results into final committee decision."""
         # Use final opinions if available (after rebuttal), else initial

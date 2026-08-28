@@ -1,0 +1,50 @@
+SYMBOL: CRM
+AS_OF: 2026-08-28T13:05:05.080950+00:00
+RANK: #1
+OPPORTUNITY_SCORE: 83.75/100
+DISCOVERY_DIRECTION: BULLISH
+
+EVIDENCE:
+  [E_PRICE] Current Price: 252.19 USD
+  [E_RET_1D] 1-Day Return: 0.23% %
+  [E_RET_5D] 5-Day Return: 0.23% %
+  [E_RET_20D] 20-Day Return: 0.40% %
+  [E_MOM_5D] 5-Day Momentum: 46.4700 USD
+  [E_MOM_20D] 20-Day Momentum: 71.4500 USD
+  [E_SMA20_DIST] Distance from SMA(20): 26.10% %
+  [E_SMA50_DIST] Distance from SMA(50): 40.98% %
+  [E_TREND_SHORT] Short Trend: STRONG_UP
+  [E_TREND_MEDIUM] Medium Trend: NEUTRAL
+  [E_ATR_14] ATR(14): 10.35 USD
+  [E_ATR_PCT] ATR %: 4.10% %
+  [E_VOL_20] Realized Vol(20): 0.79% % (ann.)
+  [E_AVG_VOL_20] Avg Volume(20): 475354 shares
+  [E_VOL_RATIO] Volume Ratio: 4.42x x
+  [E_VOL_ZSCORE] Volume Z-Score: 4.05 σ
+  [E_DOLLAR_VOL] Daily Dollar Volume: $529.8M USD
+  [E_SMA_20] SMA(20): 199.98 USD
+  [E_SMA_50] SMA(50): 178.88 USD
+  [E_EMA_20] EMA(20): 201.64 USD
+  [E_EMA_50] EMA(50): 188.41 USD
+  [E_RSI_14] RSI(14): 53.5
+  [E_DRAWDOWN] Current Drawdown: 0.00% %
+  [E_DQ_STATUS] Data Quality: GOOD
+  [E_DQ_BARS] Bars Received: 103/150
+  [E_DQ_WARNINGS] Data Quality Warnings: Possible missing bars: expected ~150, got 103
+  [E_OPP_SCORE] Opportunity Score: 83.75 /100
+  [E_OPP_DIR] Discovery Direction: BULLISH
+  [E_DISCOVERY_REASONS] Discovery Reasons: STRONG_5D_MOMENTUM (22.6%); POSITIVE_20D_MOMENTUM (39.5%); STRONG_UPTREND (SMA20:26.1%, SMA50:41.0%); UNUSUAL_VOLUME (4.4x avg); VOLUME_ZSCORE_HIGH (4.0); EXTREME_VOLATILITY (78.9%); HIGH_LIQUIDITY ($120M); DATA_QUALITY_GOOD; SUFFICIENT_HISTORY (103 bars)
+
+DATA_QUALITY: GOOD
+  WARNING: Possible missing bars: expected ~150, got 103
+
+DISCOVERY_REASONS:
+  - STRONG_5D_MOMENTUM (22.6%)
+  - POSITIVE_20D_MOMENTUM (39.5%)
+  - STRONG_UPTREND (SMA20:26.1%, SMA50:41.0%)
+  - UNUSUAL_VOLUME (4.4x avg)
+  - VOLUME_ZSCORE_HIGH (4.0)
+  - EXTREME_VOLATILITY (78.9%)
+  - HIGH_LIQUIDITY ($120M)
+  - DATA_QUALITY_GOOD
+  - SUFFICIENT_HISTORY (103 bars)

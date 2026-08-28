@@ -5,7 +5,6 @@ Each agent has a distinct mandate and output contract.
 
 from __future__ import annotations
 
-
 QUANT_PROMPT_V1 = """You are the QUANT AGENT of the AlphaCouncil investment committee.
 
 MANDATE:

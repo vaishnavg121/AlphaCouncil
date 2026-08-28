@@ -3,22 +3,21 @@
 from __future__ import annotations
 
 from app.committee.agents import (
+    BearAgent,
+    BullAgent,
     CommitteeAgent,
     QuantAgent,
-    BullAgent,
-    BearAgent,
     RegimeAgent,
 )
 from app.committee.aggregation import CommitteeAggregator
 from app.committee.disagreement import detect_disagreement, generate_challenges, run_rebuttal_round
-from app.committee.evidence import build_evidence_packet, serialize_evidence_for_prompt
+from app.committee.evidence import EvidenceId, build_evidence_packet, serialize_evidence_for_prompt
 from app.committee.llm import NvidiaCommitteeLLMProvider
 from app.committee.models import (
     AgentChallenge,
     AgentOpinion,
     AgentResult,
     AgentRole,
-    SignalDirection,
     AgentStance,
     AgentStatus,
     CommitteeDecision,
@@ -26,20 +25,20 @@ from app.committee.models import (
     CommitteeResult,
     DisagreementReport,
     DisagreementSeverity,
+    EvidenceCategory,
     EvidenceItem,
     EvidencePacket,
-    EvidenceCategory,
     EvidenceSource,
-    TradeThesis,
     NoTradeReason,
+    SignalDirection,
+    TradeThesis,
 )
-from app.committee.evidence import EvidenceId
 from app.committee.prompts import (
-    QUANT_PROMPT_V1,
-    BULL_PROMPT_V1,
     BEAR_PROMPT_V1,
-    REGIME_PROMPT_V1,
+    BULL_PROMPT_V1,
+    QUANT_PROMPT_V1,
     REBUTTAL_PROMPT_V1,
+    REGIME_PROMPT_V1,
 )
 from app.committee.service import InvestmentCommitteeService, create_committee_service
 

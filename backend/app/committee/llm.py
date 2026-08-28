@@ -9,7 +9,6 @@ import httpx
 from app.core.config import Settings
 from app.core.health import HealthStatus, ServiceHealth
 
-
 NVIDIA_API_BASE_URL = "https://integrate.api.nvidia.com/v1"
 
 

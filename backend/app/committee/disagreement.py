@@ -2,20 +2,15 @@
 
 from __future__ import annotations
 
-from collections import Counter
-from decimal import Decimal
-
 from app.committee.agents.base import CommitteeAgent
 from app.committee.models import (
+    STANCE_VALUE,
     AgentChallenge,
     AgentOpinion,
     AgentRole,
-    AgentStance,
     DisagreementReport,
     DisagreementSeverity,
-    STANCE_VALUE,
 )
-
 
 # Disagreement threshold for triggering rebuttal
 REBUTTAL_THRESHOLD = DisagreementSeverity.MEDIUM

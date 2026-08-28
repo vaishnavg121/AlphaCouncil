@@ -12,7 +12,6 @@ from decimal import Decimal
 from app.core.config import Settings
 from app.discovery.models import ScreeningObservation
 from app.market.gateway import MarketDataError, MarketDataGateway
-from app.market.models import MarketSnapshot
 from app.market.indicators import (
     atr,
     avg_volume,
@@ -28,7 +27,7 @@ from app.market.indicators import (
     volume_ratio,
     volume_zscore,
 )
-from app.market.models import DataQualityStatus, OHLCVBar, Timeframe
+from app.market.models import DataQualityStatus, MarketSnapshot, OHLCVBar, Timeframe
 
 
 class BulkScreener:
