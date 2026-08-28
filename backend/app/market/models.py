@@ -31,6 +31,13 @@ class Trend(StrEnum):
     UNKNOWN = "UNKNOWN"
 
 
+class SignalDirection(StrEnum):
+    """Directional signal for trade proposals."""
+
+    BULLISH = "BULLISH"
+    BEARISH = "BEARISH"
+
+
 class DataQualityStatus(StrEnum):
     """Market data quality classification."""
 
