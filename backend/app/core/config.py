@@ -34,6 +34,26 @@ class Settings(BaseSettings):
     llm_model: str | None = None
     nvidia_api_key: SecretStr | None = None
 
+    # M2 Discovery Configuration
+    discovery_universe_mode: Literal["curated", "alpaca"] = "curated"
+    discovery_preliminary_k: int = 20
+    discovery_deep_analysis_k: int = 15
+    discovery_final_k: int = 10
+    discovery_min_price: float = 5.0
+    discovery_min_avg_dollar_volume: float = 5_000_000.0
+    discovery_min_history_bars: int = 50
+    discovery_max_per_group: int = 3
+    discovery_deep_concurrency: int = 3
+
+    # Score weights (normalized internally)
+    discovery_weight_momentum: float = 0.20
+    discovery_weight_trend: float = 0.20
+    discovery_weight_volume: float = 0.15
+    discovery_weight_volatility: float = 0.15
+    discovery_weight_mean_reversion: float = 0.10
+    discovery_weight_liquidity: float = 0.10
+    discovery_weight_quality: float = 0.10
+
     @model_validator(mode="after")
     def reject_live_trading(self) -> Settings:
         """Refuse any configuration that could authorize a live Alpaca connection."""
