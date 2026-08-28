@@ -54,6 +54,26 @@ class Settings(BaseSettings):
     discovery_weight_liquidity: float = 0.10
     discovery_weight_quality: float = 0.10
 
+    # M5 Instrument Selection Configuration
+    options_enabled: bool = True
+    option_min_dte: int = 7
+    option_target_dte_min: int = 21
+    option_target_dte_max: int = 60
+    option_max_dte: int = 90
+    option_min_moneyness_pct: float = 0.85
+    option_max_moneyness_pct: float = 1.15
+    option_target_abs_delta_min: float = 0.40
+    option_target_abs_delta_max: float = 0.75
+    option_hard_abs_delta_min: float = 0.25
+    option_hard_abs_delta_max: float = 0.90
+    option_max_spread_pct: float = 0.10
+    option_preferred_spread_pct: float = 0.03
+    option_max_contracts_per_plan: int = 10
+    option_min_instrument_score: float = 40.0
+    option_complexity_margin: float = 5.0
+    option_require_greeks: bool = False
+    option_require_iv: bool = False
+
     @model_validator(mode="after")
     def reject_live_trading(self) -> Settings:
         """Refuse any configuration that could authorize a live Alpaca connection."""
