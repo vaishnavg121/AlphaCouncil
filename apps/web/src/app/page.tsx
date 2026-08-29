@@ -65,6 +65,12 @@ const AGENT_COLORS: Record<string, string> = {
   REGIME: "bg-purple-100 text-purple-800",
 };
 
+type DashboardStatus = "LOADING" | "SUCCESS" | "DEGRADED" | "ERROR";
+
+function safeDashboardError(error: unknown): string {
+  return error instanceof Error ? error.message : "Request failed";
+}
+
 function StatusBadge({ status }: { status: string }) {
   return (
     <Badge className={STATUS_COLORS[status] || "bg-gray-100 text-gray-800"} variant="outline">
@@ -146,12 +152,14 @@ export default function Dashboard() {
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [selectedTab, setSelectedTab] = useState("overview"); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [councilStatus, setCouncilStatus] = useState<SystemHealth | null>(null); // eslint-disable-line @typescript-eslint/no-unused-vars
+  const [dashboardStatus, setDashboardStatus] = useState<DashboardStatus>("LOADING");
+  const [dashboardIssues, setDashboardIssues] = useState<string[]>([]);
   const mountedRef = useRef(true);
 
   const loadDashboard = async () => {
     if (!mountedRef.current) return;
     try {
-      const [h, c, t, p, ctx, cs] = await Promise.all([
+      const [healthResult, configResult, tradesResult, performanceResult, contextResult, councilResult] = await Promise.allSettled([
         systemApi.health(),
         systemApi.config(),
         tradesApi.list(20),
@@ -160,20 +168,49 @@ export default function Dashboard() {
         councilApi.getStatus(),
       ]);
       if (!mountedRef.current) return;
-      setHealth(h);
-      setConfig(c);
-      setTrades(t);
-      setPerformance(p);
-      setHistoricalContext(ctx);
-      setCouncilStatus(cs);
-    } catch (e) {
-      console.error("Failed to load dashboard:", e);
+      const issues: string[] = [];
+      let criticalFailures = 0;
+
+      if (healthResult.status === "fulfilled") setHealth(healthResult.value);
+      else {
+        issues.push(`System health: ${safeDashboardError(healthResult.reason)}`);
+        criticalFailures += 1;
+      }
+
+      if (configResult.status === "fulfilled") setConfig(configResult.value);
+      else {
+        issues.push(`Safety configuration: ${safeDashboardError(configResult.reason)}`);
+        criticalFailures += 1;
+      }
+
+      if (tradesResult.status === "fulfilled") setTrades(tradesResult.value);
+      else issues.push(`Trade history: ${safeDashboardError(tradesResult.reason)}`);
+
+      if (performanceResult.status === "fulfilled") setPerformance(performanceResult.value);
+      else issues.push(`Performance: ${safeDashboardError(performanceResult.reason)}`);
+
+      if (contextResult.status === "fulfilled") setHistoricalContext(contextResult.value);
+      else issues.push(`Historical context: ${safeDashboardError(contextResult.reason)}`);
+
+      if (councilResult.status === "fulfilled") setCouncilStatus(councilResult.value);
+      else issues.push(`Council status: ${safeDashboardError(councilResult.reason)}`);
+
+      setDashboardIssues(issues);
+      setDashboardStatus(
+        criticalFailures === 2 ? "ERROR" : issues.length > 0 ? "DEGRADED" : "SUCCESS",
+      );
+    } catch {
+      if (mountedRef.current) {
+        setDashboardIssues(["Dashboard loading failed unexpectedly"]);
+        setDashboardStatus("ERROR");
+      }
     } finally {
       if (mountedRef.current) setLoading(false);
     }
   };
 
   useEffect(() => {
+    mountedRef.current = true;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadDashboard();
     const interval = setInterval(loadDashboard, 30000);
@@ -214,6 +251,11 @@ export default function Dashboard() {
     }
   };
 
+  const runInProgress = Boolean(
+    activeRunId &&
+      (!councilRun || !["COMPLETE", "PARTIAL", "FAILED"].includes(councilRun.status)),
+  );
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -250,7 +292,7 @@ export default function Dashboard() {
               variant="outline"
               size="sm"
               onClick={() => runCouncil(true)}
-              disabled={!!activeRunId}
+              disabled={runInProgress}
             >
               <Zap className="w-4 h-4 mr-2" />
               Run Council (Demo)
@@ -260,6 +302,23 @@ export default function Dashboard() {
       </header>
 
       <main className="max-w-[1400px] mx-auto px-4 py-6">
+        <div
+          className={`mb-4 rounded-lg border p-3 text-sm ${
+            dashboardStatus === "SUCCESS"
+              ? "border-green-200 bg-green-50 text-green-800"
+              : dashboardStatus === "DEGRADED"
+                ? "border-yellow-200 bg-yellow-50 text-yellow-800"
+                : "border-red-200 bg-red-50 text-red-800"
+          }`}
+          role="status"
+          data-testid="dashboard-status"
+        >
+          <strong>Dashboard: {dashboardStatus}</strong>
+          {dashboardIssues.length > 0 && (
+            <span className="ml-2">{dashboardIssues.join(" · ")}</span>
+          )}
+        </div>
+
         {/* System Status Bar */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
           <MetricCard
@@ -383,14 +442,17 @@ value={trades.filter(t => t.status === "OPEN").length.toString()}
             </div>
 
             {/* Active Council Run */}
-            {activeRunId && councilRun && (
+            {councilRun && (
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <Zap className="w-5 h-5" />
                     Active Council Run
                   </CardTitle>
-                  <RunStatusBadge status={councilRun.status} />
+                  <div className="flex items-center gap-2">
+                    {councilRun.demo_mode && <Badge variant="outline">SYNTHETIC DEMO</Badge>}
+                    <RunStatusBadge status={councilRun.status} />
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">

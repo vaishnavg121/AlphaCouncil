@@ -20,7 +20,7 @@ from app.market.models import (
     Timeframe,
     TradeSnapshot,
 )
-from app.risk.models import RiskBudget, RiskEvaluation, RiskDecisionType, RiskReasonCode
+from app.risk.models import RiskBudget, RiskDecisionType, RiskEvaluation, RiskReasonCode
 
 
 class TestEquityPlanner:

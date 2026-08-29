@@ -18,7 +18,8 @@ from pathlib import Path
 # Allow direct execution from any current directory without installing a package.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
-from app.core.config import Settings
+from datetime import UTC, datetime
+
 from app.committee.models import (
     CommitteeDecision,
     CommitteeDecisionModel,
@@ -26,18 +27,17 @@ from app.committee.models import (
     SignalDirection,
     TradeThesis,
 )
+from app.core.config import Settings
 from app.execution import (
-    ExecutionService,
     ExecutionStatus,
     create_execution_service,
 )
-from app.execution.models import ExecutionReasonCode, ExecutionStatus as ExecStatus
+from app.execution.models import ExecutionReasonCode
 from app.instruments import InstrumentSelectorService
 from app.instruments.models import InstrumentType
 from app.market import AlpacaMarketDataGateway
 from app.options import create_option_gateway
-from app.risk import create_risk_evaluation_service, RiskDecisionType, RiskReasonCode
-from datetime import UTC, datetime
+from app.risk import RiskDecisionType, create_risk_evaluation_service
 
 
 def safe_print(text: str) -> None:
@@ -135,7 +135,7 @@ def print_execution_result(label: str, result: ExecutionResult) -> None:
 
     if result.execution_plan:
         ep = result.execution_plan
-        safe_print(f"\n  Execution Plan:")
+        safe_print("\n  Execution Plan:")
         safe_print(f"    Symbol:            {ep.symbol}")
         safe_print(f"    Type:              {ep.instrument_type}")
         safe_print(f"    Direction:         {ep.direction}")
@@ -156,7 +156,7 @@ def print_execution_result(label: str, result: ExecutionResult) -> None:
 
     if result.execution_order:
         eo = result.execution_order
-        safe_print(f"\n  Provider Order:")
+        safe_print("\n  Provider Order:")
         safe_print(f"    Order ID:          {eo.order_id}")
         safe_print(f"    Client Order ID:   {eo.client_order_id}")
         safe_print(f"    Status:            {eo.status}")
@@ -167,12 +167,12 @@ def print_execution_result(label: str, result: ExecutionResult) -> None:
         safe_print(f"    Filled:            {eo.filled_at}")
 
     if result.warnings:
-        safe_print(f"\n  Warnings:")
+        safe_print("\n  Warnings:")
         for w in result.warnings:
             safe_print(f"    - {w}")
 
     if result.reason_codes:
-        safe_print(f"\n  Reason Codes:")
+        safe_print("\n  Reason Codes:")
         for r in result.reason_codes:
             safe_print(f"    - {r}")
 
@@ -180,7 +180,7 @@ def print_execution_result(label: str, result: ExecutionResult) -> None:
 def run_scenario_a(settings: Settings, market_gateway, option_gateway) -> tuple[bool, str]:
     """Run Scenario A: M3 NO_TRADE."""
     safe_print(f"\n{'='*60}")
-    safe_print(f"  SCENARIO A: M3 NO_TRADE (Expected: NOT_EXECUTED)")
+    safe_print("  SCENARIO A: M3 NO_TRADE (Expected: NOT_EXECUTED)")
     safe_print(f"{'='*60}")
 
     thesis, label = create_no_trade_scenario()
@@ -188,7 +188,7 @@ def run_scenario_a(settings: Settings, market_gateway, option_gateway) -> tuple[
     # M4 Risk Evaluation
     risk_service = create_risk_evaluation_service(market_gateway)
     risk_eval = risk_service.evaluate(thesis)
-    safe_print(f"\n  M4 Risk Evaluation:")
+    safe_print("\n  M4 Risk Evaluation:")
     safe_print(f"    Decision: {risk_eval.decision}")
     safe_print(f"    Reason:   {risk_eval.reason_code}")
 
@@ -198,7 +198,7 @@ def run_scenario_a(settings: Settings, market_gateway, option_gateway) -> tuple[
         option_gateway=option_gateway,
     )
     instrument_plan = instrument_selector.select(thesis, risk_eval, None)
-    safe_print(f"\n  M5 Instrument Selection:")
+    safe_print("\n  M5 Instrument Selection:")
     safe_print(f"    Result: {instrument_plan.instrument_type}")
     safe_print(f"    Reason: {instrument_plan.no_trade_reason}")
 
@@ -221,7 +221,7 @@ def run_scenario_a(settings: Settings, market_gateway, option_gateway) -> tuple[
 def run_scenario_b(settings: Settings, market_gateway, option_gateway, paper_submit: bool) -> tuple[bool, str]:
     """Run Scenario B: Synthetic valid thesis with real data."""
     safe_print(f"\n{'='*60}")
-    safe_print(f"  SCENARIO B: SYNTHETIC M4 APPROVAL + REAL DATA")
+    safe_print("  SCENARIO B: SYNTHETIC M4 APPROVAL + REAL DATA")
     safe_print(f"{'='*60}")
 
     thesis, label = create_synthetic_approved_thesis()
@@ -229,13 +229,13 @@ def run_scenario_b(settings: Settings, market_gateway, option_gateway, paper_sub
     # M4 Risk Evaluation
     risk_service = create_risk_evaluation_service(market_gateway)
     risk_eval = risk_service.evaluate(thesis)
-    safe_print(f"\n  M4 Risk Evaluation:")
+    safe_print("\n  M4 Risk Evaluation:")
     safe_print(f"    Decision: {risk_eval.decision}")
     safe_print(f"    Reason:   {risk_eval.reason_code}")
 
     if risk_eval.risk_budget:
         b = risk_eval.risk_budget
-        safe_print(f"\n  Risk Budget:")
+        safe_print("\n  Risk Budget:")
         safe_print(f"    Base:              {fmt_usd(b.base_risk_budget)}")
         safe_print(f"    Adjusted:          {fmt_usd(b.adjusted_risk_budget)}")
         safe_print(f"    Max Notional:      {fmt_usd(b.max_position_notional)}")
@@ -260,7 +260,7 @@ def run_scenario_b(settings: Settings, market_gateway, option_gateway, paper_sub
         option_gateway=option_gateway,
     )
     instrument_plan = instrument_selector.select(thesis, risk_eval, None)
-    safe_print(f"\n  M5 Instrument Selection:")
+    safe_print("\n  M5 Instrument Selection:")
     safe_print(f"    Result: {instrument_plan.instrument_type}")
     if instrument_plan.is_stock and instrument_plan.equity_plan:
         eq = instrument_plan.equity_plan
@@ -349,7 +349,7 @@ def main() -> int:
 
     # Summary
     safe_print(f"\n{'='*60}")
-    safe_print(f"  SUMMARY")
+    safe_print("  SUMMARY")
     safe_print(f"{'='*60}")
     safe_print(f"  Scenario A (M3 NO_TRADE):  {'PASS' if scenario_a_pass else 'FAIL'}")
     safe_print(f"  Scenario B (Synthetic):    {'PASS' if scenario_b_pass else 'FAIL'}")
@@ -357,14 +357,14 @@ def main() -> int:
     safe_print(f"  Enable Execution:          {settings.enable_execution}")
     safe_print(f"  Enable Paper Execution:    {settings.enable_paper_execution}")
     safe_print(f"  Alpaca Live Trade:         {settings.alpaca_live_trade}")
-    safe_print(f"  M4 LLM Calls:              0")
-    safe_print(f"  M5 LLM Calls:              0")
-    safe_print(f"  M6 LLM Calls:              0")
+    safe_print("  M4 LLM Calls:              0")
+    safe_print("  M5 LLM Calls:              0")
+    safe_print("  M6 LLM Calls:              0")
 
     if args.paper_submit:
-        safe_print(f"  Orders Submitted:          1 (paper)")
+        safe_print("  Orders Submitted:          1 (paper)")
     else:
-        safe_print(f"  Orders Submitted:          0")
+        safe_print("  Orders Submitted:          0")
 
     overall_pass = scenario_a_pass and scenario_b_pass
     safe_print(f"\n  OVERALL: {'PASS' if overall_pass else 'FAIL'}")

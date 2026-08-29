@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import AnyHttpUrl, SecretStr, model_validator
+from pydantic import SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -86,7 +86,10 @@ class Settings(BaseSettings):
     # API Configuration
     port: int = 8000
     debug: bool = False
-    cors_origins: list[AnyHttpUrl] = []
+    cors_origins: list[str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
 
     @model_validator(mode="after")
     def reject_live_trading(self) -> Settings:

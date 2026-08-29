@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Optional
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -53,53 +52,49 @@ class CouncilRunEvent(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     run_id: str
     message: str
-    data: dict = {}
+    data: dict = Field(default_factory=dict)
 
 
 class CandidateAnalysis(BaseModel):
     """Analysis result for a single candidate through the pipeline."""
 
-    model_config = ConfigDict(frozen=True)
-
     symbol: str
-    candidate_rank: Optional[int] = None
-    opportunity_score: Optional[Decimal] = None
-    direction: Optional[str] = None
+    candidate_rank: int | None = None
+    opportunity_score: Decimal | None = None
+    direction: str | None = None
 
     # M3 Committee
-    committee_decision: Optional[str] = None
-    committee_confidence: Optional[Decimal] = None
-    committee_disagreement: Optional[str] = None
-    agent_opinions: dict = {}
+    committee_decision: str | None = None
+    committee_confidence: Decimal | None = None
+    committee_disagreement: str | None = None
+    agent_opinions: dict = Field(default_factory=dict)
 
     # M4 Risk
-    risk_decision: Optional[str] = None
-    risk_reason: Optional[str] = None
-    risk_budget: Optional[Decimal] = None
-    max_position_notional: Optional[Decimal] = None
+    risk_decision: str | None = None
+    risk_reason: str | None = None
+    risk_budget: Decimal | None = None
+    max_position_notional: Decimal | None = None
 
     # M5 Instrument
-    instrument_type: Optional[str] = None
-    instrument_selection_reason: Optional[str] = None
+    instrument_type: str | None = None
+    instrument_selection_reason: str | None = None
 
     # M6 Execution
-    execution_plan_id: Optional[str] = None
+    execution_plan_id: str | None = None
     execution_authorized: bool = False
     dry_run: bool = True
 
     # Status
     status: str = "PENDING"
-    error: Optional[str] = None
+    error: str | None = None
 
 
 class CouncilRun(BaseModel):
     """Complete end-to-end council run record."""
 
-    model_config = ConfigDict(frozen=True)
-
     run_id: str = Field(default_factory=lambda: str(uuid4()))
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    completed_at: Optional[datetime] = None
+    completed_at: datetime | None = None
 
     status: CouncilRunStatus = CouncilRunStatus.STARTED
 
@@ -108,8 +103,8 @@ class CouncilRun(BaseModel):
     max_candidates: int = 10
 
     # Pipeline results
-    candidate_set: Optional[dict] = None  # M2 CandidateSet
-    candidate_analyses: list[CandidateAnalysis] = []
+    candidate_set: dict | None = None  # M2 CandidateSet
+    candidate_analyses: list[CandidateAnalysis] = Field(default_factory=list)
 
     # Summary
     candidates_discovered: int = 0
@@ -118,12 +113,12 @@ class CouncilRun(BaseModel):
     candidates_rejected: int = 0
 
     # Errors
-    errors: list[str] = []
-    warnings: list[str] = []
+    errors: list[str] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
 
     # Timing
     total_runtime_ms: int = 0
-    stage_timings: dict[str, int] = {}
+    stage_timings: dict[str, int] = Field(default_factory=dict)
 
     @property
     def is_terminal(self) -> bool:
@@ -147,8 +142,8 @@ class CouncilRunRequest(BaseModel):
 
     max_candidates: int = 10
     demo_mode: bool = False
-    universe_mode: Optional[str] = None  # "curated" | "alpaca"
-    symbols: Optional[list[str]] = None
+    universe_mode: str | None = None  # "curated" | "alpaca"
+    symbols: list[str] | None = None
 
 
 class CouncilRunResponse(BaseModel):

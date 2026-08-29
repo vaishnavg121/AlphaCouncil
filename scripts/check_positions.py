@@ -16,25 +16,23 @@ from pathlib import Path
 # Allow direct execution from any current directory without installing a package.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
-from app.core.config import Settings
 from app.alpaca.gateway import AlpacaGateway
+from app.core.config import Settings
 from app.market import AlpacaMarketDataGateway
 from app.positions import (
     ExitDecisionType,
     ExitReasonCode,
-    ExitUrgency,
-    ManagedPosition,
-    PositionStatus,
     ExitState,
+    ManagedPosition,
     PositionSnapshot,
-    create_position_store,
-    create_position_reconciler,
-    create_position_monitor_service,
-    create_exit_planner,
+    PositionStatus,
     create_exit_management_service,
+    create_exit_planner,
+    create_position_monitor_service,
+    create_position_reconciler,
+    create_position_store,
 )
-from app.risk import create_risk_evaluation_service, RiskState
-from app.execution import create_execution_service
+from app.risk import RiskState
 
 
 def safe_print(text: str) -> None:
@@ -258,7 +256,7 @@ def print_execution_result(label: str, result) -> None:
     safe_print(f"  Fill Avg Price: {fmt_usd(result.filled_avg_price) if result.filled_avg_price else 'N/A'}")
     safe_print(f"  Remaining Qty: {result.remaining_quantity}")
     if result.warnings:
-        safe_print(f"  Warnings:")
+        safe_print("  Warnings:")
         for w in result.warnings:
             safe_print(f"    - {w}")
     if result.reason_codes:
@@ -268,7 +266,7 @@ def print_execution_result(label: str, result) -> None:
 def run_scenario_a(settings: Settings, market_gateway, alpaca_gateway, risk_state: RiskState) -> bool:
     """Scenario A: Healthy long position -> HOLD."""
     safe_print(f"\n{'='*60}")
-    safe_print(f"  SCENARIO A: HEALTHY LONG POSITION (Expected: HOLD)")
+    safe_print("  SCENARIO A: HEALTHY LONG POSITION (Expected: HOLD)")
     safe_print(f"{'='*60}")
 
     # Create synthetic position
@@ -306,7 +304,7 @@ def run_scenario_a(settings: Settings, market_gateway, alpaca_gateway, risk_stat
 def run_scenario_b(settings: Settings, market_gateway, alpaca_gateway, risk_state: RiskState) -> bool:
     """Scenario B: Stop breached long -> EXIT."""
     safe_print(f"\n{'='*60}")
-    safe_print(f"  SCENARIO B: STOP BREACHED LONG (Expected: EXIT / HARD_STOP_TRIGGERED)")
+    safe_print("  SCENARIO B: STOP BREACHED LONG (Expected: EXIT / HARD_STOP_TRIGGERED)")
     safe_print(f"{'='*60}")
 
     position = create_synthetic_stop_breached_long()
@@ -341,7 +339,7 @@ def run_scenario_b(settings: Settings, market_gateway, alpaca_gateway, risk_stat
 def run_scenario_c(settings: Settings, market_gateway, alpaca_gateway) -> bool:
     """Scenario C: Kill switch active -> EXIT."""
     safe_print(f"\n{'='*60}")
-    safe_print(f"  SCENARIO C: KILL SWITCH ACTIVE (Expected: EXIT / KILL_SWITCH)")
+    safe_print("  SCENARIO C: KILL SWITCH ACTIVE (Expected: EXIT / KILL_SWITCH)")
     safe_print(f"{'='*60}")
 
     position = create_synthetic_long_position()
@@ -389,7 +387,7 @@ def run_scenario_c(settings: Settings, market_gateway, alpaca_gateway) -> bool:
 def run_scenario_d(settings: Settings, market_gateway, alpaca_gateway, risk_state: RiskState) -> bool:
     """Scenario D: Take profit triggered -> EXIT."""
     safe_print(f"\n{'='*60}")
-    safe_print(f"  SCENARIO D: TAKE PROFIT TRIGGERED (Expected: EXIT / TAKE_PROFIT)")
+    safe_print("  SCENARIO D: TAKE PROFIT TRIGGERED (Expected: EXIT / TAKE_PROFIT)")
     safe_print(f"{'='*60}")
 
     from datetime import UTC, datetime, timedelta
@@ -458,7 +456,7 @@ def run_scenario_d(settings: Settings, market_gateway, alpaca_gateway, risk_stat
 def run_scenario_e(settings: Settings, market_gateway, alpaca_gateway, risk_state: RiskState) -> bool:
     """Scenario E: Exit planning and dry-run execution."""
     safe_print(f"\n{'='*60}")
-    safe_print(f"  SCENARIO E: EXIT PLANNING + DRY RUN (Expected: EXIT Plan Created)")
+    safe_print("  SCENARIO E: EXIT PLANNING + DRY RUN (Expected: EXIT Plan Created)")
     safe_print(f"{'='*60}")
 
     position = create_synthetic_stop_breached_long()
@@ -516,7 +514,7 @@ def run_scenario_e(settings: Settings, market_gateway, alpaca_gateway, risk_stat
 def run_scenario_f(settings: Settings, market_gateway, alpaca_gateway, risk_state: RiskState) -> bool:
     """Scenario F: Reconciliation - local qty > provider qty."""
     safe_print(f"\n{'='*60}")
-    safe_print(f"  SCENARIO F: QUANTITY MISMATCH (Expected: RECONCILIATION_REQUIRED)")
+    safe_print("  SCENARIO F: QUANTITY MISMATCH (Expected: RECONCILIATION_REQUIRED)")
     safe_print(f"{'='*60}")
 
     position = create_synthetic_long_position()
@@ -535,7 +533,7 @@ def run_scenario_f(settings: Settings, market_gateway, alpaca_gateway, risk_stat
     results = reconciler.reconcile_all()
 
     for result in results:
-        safe_print(f"\n--- Reconciliation Result ---")
+        safe_print("\n--- Reconciliation Result ---")
         safe_print(f"  Position ID:   {result.position_id}")
         safe_print(f"  Symbol:        {result.symbol}")
         safe_print(f"  Local Qty:     {result.local_quantity}")
@@ -605,7 +603,7 @@ def main() -> int:
 
     # Summary
     safe_print(f"\n{'='*60}")
-    safe_print(f"  SUMMARY")
+    safe_print("  SUMMARY")
     safe_print(f"{'='*60}")
     all_pass = True
     for name, passed in results:
@@ -617,8 +615,8 @@ def main() -> int:
     safe_print(f"  Enable Execution:       {settings.enable_execution}")
     safe_print(f"  Enable Paper Execution: {settings.enable_paper_execution}")
     safe_print(f"  Alpaca Live Trade:      {settings.alpaca_live_trade}")
-    safe_print(f"  M7 LLM Calls:           0")
-    safe_print(f"  Orders Submitted:       0 (DRY RUN)")
+    safe_print("  M7 LLM Calls:           0")
+    safe_print("  Orders Submitted:       0 (DRY RUN)")
 
     safe_print(f"\n  OVERALL: {'PASS' if all_pass else 'FAIL'}")
 

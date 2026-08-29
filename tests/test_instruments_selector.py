@@ -15,8 +15,8 @@ from app.committee.models import (
     SignalDirection,
     TradeThesis,
 )
+from app.instruments.models import InstrumentPlan, InstrumentType
 from app.instruments.selector import InstrumentSelectorService
-from app.instruments.models import InstrumentType, InstrumentPlan
 from app.market.models import (
     DataQuality,
     DataQualityStatus,
@@ -28,16 +28,7 @@ from app.market.models import (
     Timeframe,
     TradeSnapshot,
 )
-from app.options.models import (
-    OptionContract,
-    OptionContractStatus,
-    OptionMarketSnapshot,
-    OptionQuote,
-    OptionType,
-    OptionsGreeks,
-    OptionDataQualityStatus,
-)
-from app.risk.models import RiskBudget, RiskEvaluation, RiskDecisionType, RiskReasonCode
+from app.risk.models import RiskBudget, RiskDecisionType, RiskEvaluation, RiskReasonCode
 
 
 class TestInstrumentSelectorService:
@@ -200,7 +191,12 @@ class TestInstrumentSelectorService:
 
 class TestInstrumentPlanProperties:
     def test_stock_plan_properties(self):
-        from app.instruments.models import EquityInstrumentPlan, InstrumentPlan, InstrumentType, EquitySide
+        from app.instruments.models import (
+            EquityInstrumentPlan,
+            EquitySide,
+            InstrumentPlan,
+            InstrumentType,
+        )
 
         equity = EquityInstrumentPlan(
             symbol="AAPL",
@@ -226,7 +222,12 @@ class TestInstrumentPlanProperties:
         assert plan.risk_budget_used == Decimal("100")
 
     def test_option_plan_properties(self):
-        from app.instruments.models import OptionInstrumentPlan, InstrumentPlan, InstrumentType, OptionType
+        from app.instruments.models import (
+            InstrumentPlan,
+            InstrumentType,
+            OptionInstrumentPlan,
+            OptionType,
+        )
 
         option = OptionInstrumentPlan(
             contract_symbol="AAPL240119C00150000",

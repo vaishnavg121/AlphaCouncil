@@ -13,7 +13,8 @@ from pathlib import Path
 # Allow direct execution from any current directory without installing a package.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
-from app.core.config import Settings
+from datetime import UTC, datetime
+
 from app.committee.models import (
     CommitteeDecision,
     CommitteeDecisionModel,
@@ -21,12 +22,12 @@ from app.committee.models import (
     SignalDirection,
     TradeThesis,
 )
+from app.core.config import Settings
 from app.instruments import InstrumentSelectorService
-from app.instruments.models import InstrumentType, InstrumentPlan
+from app.instruments.models import InstrumentPlan, InstrumentType
 from app.market import AlpacaMarketDataGateway
 from app.options import create_option_gateway
-from app.risk import create_risk_evaluation_service, RiskDecisionType, RiskReasonCode
-from datetime import UTC, datetime
+from app.risk import RiskDecisionType, create_risk_evaluation_service
 
 
 def safe_print(text: str) -> None:
@@ -130,7 +131,7 @@ def print_plan(label: str, plan: InstrumentPlan) -> None:
 
     if plan.is_stock and plan.equity_plan:
         eq = plan.equity_plan
-        safe_print(f"\n  Equity Plan:")
+        safe_print("\n  Equity Plan:")
         safe_print(f"    Side:                    {eq.side}")
         safe_print(f"    Ref Price:               {fmt_usd(eq.reference_price)}")
         safe_print(f"    Max Notional (M4):       {fmt_usd(eq.max_notional)}")
@@ -142,7 +143,7 @@ def print_plan(label: str, plan: InstrumentPlan) -> None:
 
     if plan.is_option and plan.option_plan:
         op = plan.option_plan
-        safe_print(f"\n  Option Plan:")
+        safe_print("\n  Option Plan:")
         safe_print(f"    Contract:                {op.contract_symbol}")
         safe_print(f"    Type:                    {op.option_type}")
         safe_print(f"    DTE:                     {op.days_to_expiry}")
@@ -196,18 +197,18 @@ def main() -> int:
     # SCENARIO A: Real M3 NO_TRADE output
     # ============================================================
     safe_print(f"\n{'='*60}")
-    safe_print(f"  SCENARIO A: M3 NO_TRADE (Expected: NO_TRADE, RISK_REJECTED)")
+    safe_print("  SCENARIO A: M3 NO_TRADE (Expected: NO_TRADE, RISK_REJECTED)")
     safe_print(f"{'='*60}")
 
     no_trade_thesis, scenario_a_label = create_no_trade_scenario()
     risk_eval_a = risk_service.evaluate(no_trade_thesis)
     plan_a = instrument_selector.select(no_trade_thesis, risk_eval_a, None)  # MarketState not needed for REJECTED
 
-    safe_print(f"\n  M4 Risk Evaluation:")
+    safe_print("\n  M4 Risk Evaluation:")
     safe_print(f"    Decision: {risk_eval_a.decision}")
     safe_print(f"    Reason:   {risk_eval_a.reason_code}")
 
-    safe_print(f"\n  M5 Instrument Selection:")
+    safe_print("\n  M5 Instrument Selection:")
     safe_print(f"    Result: {plan_a.instrument_type}")
     safe_print(f"    Reason: {plan_a.no_trade_reason}")
 
@@ -222,19 +223,19 @@ def main() -> int:
     # SCENARIO B: Synthetic valid thesis with real data
     # ============================================================
     safe_print(f"\n{'='*60}")
-    safe_print(f"  SCENARIO B: SYNTHETIC M4 APPROVAL + REAL OPTION DATA")
+    safe_print("  SCENARIO B: SYNTHETIC M4 APPROVAL + REAL OPTION DATA")
     safe_print(f"{'='*60}")
 
     synth_thesis, scenario_b_label = create_synthetic_approved_thesis()
     risk_eval_b = risk_service.evaluate(synth_thesis)
 
-    safe_print(f"\n  M4 Risk Evaluation:")
+    safe_print("\n  M4 Risk Evaluation:")
     safe_print(f"    Decision: {risk_eval_b.decision}")
     safe_print(f"    Reason:   {risk_eval_b.reason_code}")
 
     if risk_eval_b.risk_budget:
         b = risk_eval_b.risk_budget
-        safe_print(f"\n  Risk Budget:")
+        safe_print("\n  Risk Budget:")
         safe_print(f"    Base:              {fmt_usd(b.base_risk_budget)}")
         safe_print(f"    Adjusted:          {fmt_usd(b.adjusted_risk_budget)}")
         safe_print(f"    Max Notional:      {fmt_usd(b.max_position_notional)}")
@@ -274,17 +275,17 @@ def main() -> int:
     # SUMMARY
     # ============================================================
     safe_print(f"\n{'='*60}")
-    safe_print(f"  SUMMARY")
+    safe_print("  SUMMARY")
     safe_print(f"{'='*60}")
     safe_print(f"  Scenario A (M3 NO_TRADE):  {'PASS' if scenario_a_pass else 'FAIL'}")
     safe_print(f"  Scenario B (Synthetic):    {'PASS' if scenario_b_pass else 'FAIL'}")
-    safe_print(f"  M4 Constitution Version:   v1.0.0")
+    safe_print("  M4 Constitution Version:   v1.0.0")
     safe_print(f"  Trading Mode:              {settings.trading_mode}")
     safe_print(f"  Execution Enabled:         {settings.enable_execution}")
     safe_print(f"  Alpaca Live Trade:         {settings.alpaca_live_trade}")
-    safe_print(f"  M4 LLM Calls:              0")
-    safe_print(f"  M5 LLM Calls:              0")
-    safe_print(f"  Orders Submitted:          0")
+    safe_print("  M4 LLM Calls:              0")
+    safe_print("  M5 LLM Calls:              0")
+    safe_print("  Orders Submitted:          0")
 
     overall_pass = scenario_a_pass and scenario_b_pass
     safe_print(f"\n  OVERALL: {'PASS' if overall_pass else 'FAIL'}")

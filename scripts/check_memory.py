@@ -18,76 +18,63 @@ from uuid import uuid4
 # Allow direct execution
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "backend"))
 
-from app.core.config import Settings
-from app.memory import (
-    create_trading_memory_service,
-    create_post_trade_evaluator,
-    TradeRecord,
-    TradeOutcome,
-    TradeOutcomeType,
-    ThesisOutcomeEvaluation,
-    ThesisCorrectness,
-    ExecutionQualityEvaluation,
-    ExitQualityEvaluation,
-    RiskOutcomeEvaluation,
-    InstrumentOutcomeEvaluation,
-    AgentPerformanceRecord,
-    AgentStance,
-    HistoricalContext,
-    PerformanceSummary,
-    SimilarTradeResult,
-    DisagreementBucket,
-    ExitReasonCategory,
-)
-from app.positions import (
-    ManagedPosition,
-    PositionStatus,
-    ExitReasonCode,
-    ExitState,
-    create_position_store,
-)
+from datetime import UTC, datetime, timedelta
+
 from app.committee.models import (
-    CommitteeResult,
     AgentOpinion,
-    AgentStance as M3AgentStance,
     AgentRole,
     CommitteeDecision,
     CommitteeDecisionModel,
-    TradeThesis,
-    EvidencePacket,
-    EvidenceItem,
-    EvidenceCategory,
-    EvidenceSource,
-    DisagreementReport,
+    CommitteeResult,
     DisagreementSeverity,
+    EvidenceCategory,
+    EvidenceItem,
+    EvidencePacket,
+    EvidenceSource,
     SignalDirection,
+    TradeThesis,
 )
-from app.risk.models import (
-    RiskEvaluation,
-    RiskDecisionType,
-    RiskReasonCode,
-    RiskBudget,
-    RiskCheckResult,
-    RiskRuleType,
+from app.committee.models import (
+    AgentStance as M3AgentStance,
 )
-from app.instruments.models import (
-    InstrumentPlan,
-    InstrumentType,
-    EquityInstrumentPlan,
-    EquitySide,
-)
+from app.core.config import Settings
 from app.execution.models import (
-    ExecutionResult,
-    ExecutionStatus,
     ExecutionAuthorization,
     ExecutionAuthorizationState,
-    ExecutionReasonCode,
     ExecutionPlan,
+    ExecutionReasonCode,
+    ExecutionResult,
+    ExecutionStatus,
+    OrderSide,
     OrderType,
     TimeInForce,
-    OrderSide,
 )
-from datetime import UTC, datetime, timedelta
+from app.instruments.models import (
+    EquityInstrumentPlan,
+    EquitySide,
+    InstrumentPlan,
+    InstrumentType,
+)
+from app.memory import (
+    ThesisCorrectness,
+    TradeOutcomeType,
+    TradeRecord,
+    create_trading_memory_service,
+)
+from app.positions import (
+    ExitReasonCode,
+    ExitState,
+    ManagedPosition,
+    PositionStatus,
+)
+from app.risk.models import (
+    RiskBudget,
+    RiskCheckResult,
+    RiskDecisionType,
+    RiskEvaluation,
+    RiskReasonCode,
+    RiskRuleType,
+)
 
 
 def safe_print(text: str) -> None:
@@ -375,7 +362,7 @@ def print_evaluation(label: str, eval_obj) -> None:
 def run_scenario_winning_long(service: TradingMemoryService) -> bool:
     """Scenario: Winning LONG trade with take profit exit."""
     safe_print(f"\n{'='*60}")
-    safe_print(f"  SCENARIO: WINNING LONG (Take Profit)")
+    safe_print("  SCENARIO: WINNING LONG (Take Profit)")
     safe_print(f"{'='*60}")
 
     position, exit_ts, exit_reasons = create_synthetic_closed_position(
@@ -442,7 +429,7 @@ def run_scenario_winning_long(service: TradingMemoryService) -> bool:
 def run_scenario_losing_long(service: TradingMemoryService) -> bool:
     """Scenario: Losing LONG trade with hard stop exit."""
     safe_print(f"\n{'='*60}")
-    safe_print(f"  SCENARIO: LOSING LONG (Hard Stop)")
+    safe_print("  SCENARIO: LOSING LONG (Hard Stop)")
     safe_print(f"{'='*60}")
 
     position, exit_ts, exit_reasons = create_synthetic_closed_position(
@@ -507,7 +494,7 @@ def run_scenario_losing_long(service: TradingMemoryService) -> bool:
 def run_scenario_winning_short(service: TradingMemoryService) -> bool:
     """Scenario: Winning SHORT trade."""
     safe_print(f"\n{'='*60}")
-    safe_print(f"  SCENARIO: WINNING SHORT")
+    safe_print("  SCENARIO: WINNING SHORT")
     safe_print(f"{'='*60}")
 
     position, exit_ts, exit_reasons = create_synthetic_closed_position(
@@ -569,7 +556,7 @@ def run_scenario_winning_short(service: TradingMemoryService) -> bool:
 def run_scenario_losing_short(service: TradingMemoryService) -> bool:
     """Scenario: Losing SHORT trade."""
     safe_print(f"\n{'='*60}")
-    safe_print(f"  SCENARIO: LOSING SHORT")
+    safe_print("  SCENARIO: LOSING SHORT")
     safe_print(f"{'='*60}")
 
     position, exit_ts, exit_reasons = create_synthetic_closed_position(
@@ -683,7 +670,7 @@ def create_synthetic_committee_result(symbol: str, direction: str, confidence: D
 def run_scenario_high_conf_correct(service: TradingMemoryService) -> bool:
     """Scenario: High confidence, thesis correct."""
     safe_print(f"\n{'='*60}")
-    safe_print(f"  SCENARIO: HIGH CONFIDENCE CORRECT")
+    safe_print("  SCENARIO: HIGH CONFIDENCE CORRECT")
     safe_print(f"{'='*60}")
 
     committee = create_synthetic_committee_result("SPY", "LONG", confidence=Decimal("0.92"))
@@ -739,7 +726,7 @@ def run_scenario_high_conf_correct(service: TradingMemoryService) -> bool:
 def run_scenario_high_conf_incorrect(service: TradingMemoryService) -> bool:
     """Scenario: High confidence, thesis incorrect (for calibration)."""
     safe_print(f"\n{'='*60}")
-    safe_print(f"  SCENARIO: HIGH CONFIDENCE INCORRECT")
+    safe_print("  SCENARIO: HIGH CONFIDENCE INCORRECT")
     safe_print(f"{'='*60}")
 
     committee = create_synthetic_committee_result("SPY", "LONG", confidence=Decimal("0.92"))
@@ -795,7 +782,7 @@ def run_scenario_high_conf_incorrect(service: TradingMemoryService) -> bool:
 def run_idempotency_test(service: TradingMemoryService) -> bool:
     """Test that evaluating same position 10 times creates only 1 record."""
     safe_print(f"\n{'='*60}")
-    safe_print(f"  SCENARIO: IDEMPOTENCY TEST")
+    safe_print("  SCENARIO: IDEMPOTENCY TEST")
     safe_print(f"{'='*60}")
 
     position, exit_ts, exit_reasons = create_synthetic_closed_position(
@@ -839,7 +826,7 @@ def run_idempotency_test(service: TradingMemoryService) -> bool:
 def run_similarity_test(service: TradingMemoryService) -> bool:
     """Test similarity engine with known trades."""
     safe_print(f"\n{'='*60}")
-    safe_print(f"  SCENARIO: SIMILARITY ENGINE")
+    safe_print("  SCENARIO: SIMILARITY ENGINE")
     safe_print(f"{'='*60}")
 
     # Query for similar trades
@@ -869,7 +856,7 @@ def run_similarity_test(service: TradingMemoryService) -> bool:
 def run_performance_summary(service: TradingMemoryService) -> bool:
     """Test performance summary generation."""
     safe_print(f"\n{'='*60}")
-    safe_print(f"  SCENARIO: PERFORMANCE SUMMARY")
+    safe_print("  SCENARIO: PERFORMANCE SUMMARY")
     safe_print(f"{'='*60}")
 
     summary = service.get_performance_summary()
@@ -893,7 +880,7 @@ def run_performance_summary(service: TradingMemoryService) -> bool:
 def run_historical_context(service: TradingMemoryService) -> bool:
     """Test historical context provider."""
     safe_print(f"\n{'='*60}")
-    safe_print(f"  SCENARIO: HISTORICAL CONTEXT")
+    safe_print("  SCENARIO: HISTORICAL CONTEXT")
     safe_print(f"{'='*60}")
 
     query = {
@@ -949,7 +936,7 @@ def main() -> int:
 
     # Summary
     safe_print(f"\n{'='*60}")
-    safe_print(f"  SUMMARY")
+    safe_print("  SUMMARY")
     safe_print(f"{'='*60}")
     all_pass = True
     for name, passed in results:
@@ -957,8 +944,8 @@ def main() -> int:
         if not passed:
             all_pass = False
 
-    safe_print(f"\n  M8 LLM Calls:     0")
-    safe_print(f"  Paper Trading:    YES")
+    safe_print("\n  M8 LLM Calls:     0")
+    safe_print("  Paper Trading:    YES")
     safe_print(f"  OVERALL: {'PASS' if all_pass else 'FAIL'}")
 
     service.close()

@@ -6,23 +6,22 @@ import sqlite3
 import threading
 from collections.abc import Generator
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from app.memory.models import (
-        TradeRecord,
-        TradeOutcome,
-        ThesisOutcomeEvaluation,
-        ExecutionQualityEvaluation,
-        ExitQualityEvaluation,
-        RiskOutcomeEvaluation,
-        InstrumentOutcomeEvaluation,
         AgentPerformanceRecord,
         CalibrationSummary,
-        PerformanceSummary,
+        ExecutionQualityEvaluation,
+        ExitQualityEvaluation,
+        InstrumentOutcomeEvaluation,
+        RiskOutcomeEvaluation,
+        ThesisOutcomeEvaluation,
+        TradeOutcome,
+        TradeRecord,
     )
 
 
@@ -31,28 +30,26 @@ class TradingMemoryStore:
 
     def __init__(self, db_path: str | Path | None = None) -> None:
         self._db_path = db_path or ":memory:"
-        self._local = threading.local()
+        self._lock = threading.RLock()
+        self._conn = sqlite3.connect(self._db_path, check_same_thread=False)
+        self._conn.row_factory = sqlite3.Row
         self._init_db()
 
     def _get_conn(self) -> sqlite3.Connection:
-        """Get thread-local database connection."""
-        conn = getattr(self._local, "conn", None)
-        if conn is None:
-            conn = sqlite3.connect(self._db_path, check_same_thread=False)
-            conn.row_factory = sqlite3.Row
-            self._local.conn = conn
-        return conn
+        """Get the store connection shared safely across FastAPI worker threads."""
+        return self._conn
 
     @contextmanager
     def _transaction(self) -> Generator[sqlite3.Connection, None, None]:
         """Context manager for database transactions."""
-        conn: sqlite3.Connection = self._get_conn()
-        try:
-            yield conn
-            conn.commit()
-        except Exception:
-            conn.rollback()
-            raise
+        with self._lock:
+            conn: sqlite3.Connection = self._get_conn()
+            try:
+                yield conn
+                conn.commit()
+            except Exception:
+                conn.rollback()
+                raise
 
     def _init_db(self) -> None:
         """Initialize database schema."""
@@ -389,7 +386,7 @@ class TradingMemoryStore:
                 ),
             )
 
-    def get_trade_record(self, trade_id: str) -> Optional[TradeRecord]:
+    def get_trade_record(self, trade_id: str) -> TradeRecord | None:
         """Get trade record by ID."""
         with self._transaction() as conn:
             row = conn.execute(
@@ -398,7 +395,7 @@ class TradingMemoryStore:
             ).fetchone()
             return self._row_to_trade_record(row) if row else None
 
-    def get_trade_record_by_position_id(self, position_id: str) -> Optional[TradeRecord]:
+    def get_trade_record_by_position_id(self, position_id: str) -> TradeRecord | None:
         """Get trade record by position ID (for idempotent evaluation)."""
         with self._transaction() as conn:
             row = conn.execute(
@@ -823,7 +820,7 @@ class TradingMemoryStore:
                 ),
             )
 
-    def get_latest_calibration(self) -> Optional[CalibrationSummary]:
+    def get_latest_calibration(self) -> CalibrationSummary | None:
         """Get latest calibration snapshot."""
         import json
         with self._transaction() as conn:
@@ -844,7 +841,7 @@ class TradingMemoryStore:
                     observed_success_rate=Decimal(b["observed_success_rate"]) if b["observed_success_rate"] else None,
                     calibration_gap=Decimal(b["calibration_gap"]) if b["calibration_gap"] else None,
                 ))
-            from app.memory.models import CalibrationSummary, CalibrationInsight
+            from app.memory.models import CalibrationInsight, CalibrationSummary
             return CalibrationSummary(
                 buckets=tuple(buckets),
                 brier_score=Decimal(row["brier_score"]) if row["brier_score"] else None,
@@ -861,9 +858,8 @@ class TradingMemoryStore:
 
     def close(self) -> None:
         """Close database connection."""
-        if hasattr(self._local, "conn") and self._local.conn:
-            self._local.conn.close()
-            self._local.conn = None
+        with self._lock:
+            self._conn.close()
 
 
 def create_trading_memory_store(db_path: str | Path | None = None) -> TradingMemoryStore:

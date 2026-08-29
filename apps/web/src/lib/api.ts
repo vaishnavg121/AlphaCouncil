@@ -4,7 +4,77 @@
  */
 
 // Base configuration
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "/api";
+const API_BASE = (
+  process.env.NEXT_PUBLIC_API_URL ||
+  process.env.NEXT_PUBLIC_API_BASE ||
+  "/api"
+).replace(/\/$/, "");
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number | null,
+    public readonly endpoint: string,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+function safeEndpointPath(endpoint: string): string {
+  try {
+    return new URL(endpoint, "http://local.invalid").pathname;
+  } catch {
+    return "/unknown";
+  }
+}
+
+function sanitizeMessage(value: string): string {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (!normalized) return "Empty error response";
+  if (/<(?:!doctype|html|head|body|script)\b/i.test(normalized)) {
+    return "Unexpected HTML response";
+  }
+  if (/traceback \(most recent call last\)/i.test(normalized)) {
+    return "Internal server error";
+  }
+  return normalized
+    .replace(/Bearer\s+[^\s"']+/gi, "Bearer [REDACTED]")
+    .replace(/nvapi-[A-Za-z0-9_-]+/gi, "[REDACTED]")
+    .slice(0, 240);
+}
+
+function extractErrorMessage(value: unknown): string | null {
+  if (typeof value === "string") return sanitizeMessage(value);
+  if (Array.isArray(value)) {
+    const messages = value
+      .map(extractErrorMessage)
+      .filter((message): message is string => Boolean(message));
+    return messages.length > 0 ? messages.join("; ").slice(0, 240) : null;
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    for (const key of ["detail", "message", "msg", "error"]) {
+      const message = extractErrorMessage(record[key]);
+      if (message) return message;
+    }
+  }
+  return null;
+}
+
+async function parseErrorResponse(response: Response): Promise<string> {
+  const body = await response.text().catch(() => "");
+  if (!body) return "Empty error response";
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("json")) {
+    try {
+      return extractErrorMessage(JSON.parse(body)) || "Request failed";
+    } catch {
+      return "Malformed JSON error response";
+    }
+  }
+  return sanitizeMessage(body);
+}
 
 // Type definitions matching backend models
 export interface TradeRecord {
@@ -322,20 +392,31 @@ export interface SystemConfig {
 
 // API client functions
 async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...options?.headers,
-    },
-    ...options,
-  });
-
-  if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: "Unknown error" }));
-    throw new Error(error.detail || `API error: ${response.status}`);
+  const safePath = safeEndpointPath(endpoint);
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${endpoint}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...options?.headers,
+      },
+    });
+  } catch {
+    throw new ApiError(`Network failure for ${safePath}`, null, safePath);
   }
 
-  return response.json();
+  if (!response.ok) {
+    const message = await parseErrorResponse(response);
+    throw new ApiError(`HTTP ${response.status} ${safePath}: ${message}`, response.status, safePath);
+  }
+
+  if (response.status === 204) return undefined as T;
+  try {
+    return (await response.json()) as T;
+  } catch {
+    throw new ApiError(`Invalid JSON response for ${safePath}`, response.status, safePath);
+  }
 }
 
 // Trade endpoints

@@ -9,11 +9,10 @@ import pytest
 
 from app.options.models import (
     OptionContract,
+    OptionDataQualityStatus,
     OptionMarketSnapshot,
     OptionQuote,
     OptionType,
-    OptionsGreeks,
-    OptionDataQualityStatus,
 )
 from app.options.sizing import OptionSizer
 from app.risk.models import RiskBudget

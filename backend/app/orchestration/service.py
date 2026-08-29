@@ -5,28 +5,29 @@ from __future__ import annotations
 import time
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING, Optional
 from uuid import uuid4
 
+from app.alpaca.gateway import AlpacaGateway
+from app.committee.service import InvestmentCommitteeService as CommitteeService
+from app.committee.service import create_committee_service
+from app.core.config import Settings
+from app.discovery.service import OpportunityDiscoveryService, create_discovery_service
+from app.execution.service import ExecutionService, create_execution_service
+from app.instruments.selector import InstrumentSelectorService
+from app.market.alpaca_gateway import AlpacaMarketDataGateway
+from app.memory.service import TradingMemoryService, create_trading_memory_service
 from app.orchestration.models import (
+    CandidateAnalysis,
     CouncilRun,
+    CouncilRunEvent,
+    CouncilRunEventType,
     CouncilRunRequest,
     CouncilRunResponse,
     CouncilRunStatus,
-    CouncilRunEvent,
-    CouncilRunEventType,
-    CandidateAnalysis,
     create_council_run,
 )
-from app.discovery.service import OpportunityDiscoveryService, create_discovery_service
-from app.committee.service import InvestmentCommitteeService as CommitteeService, create_committee_service
-from app.risk.service import RiskEvaluationService, create_risk_evaluation_service
-from app.instruments.selector import InstrumentSelectorService
-from app.execution.service import ExecutionService, create_execution_service
-from app.memory.service import TradingMemoryService, create_trading_memory_service
-from app.market.alpaca_gateway import AlpacaMarketDataGateway
-from app.alpaca.gateway import AlpacaGateway
 from app.positions.store import PositionStore
+from app.risk.service import RiskEvaluationService, create_risk_evaluation_service
 
 
 class CouncilOrchestrator:
@@ -34,11 +35,11 @@ class CouncilOrchestrator:
 
     def __init__(
         self,
-        settings: Optional[Settings] = None,
-        market_gateway: Optional["AlpacaMarketDataGateway"] = None,
-        alpaca_gateway: Optional["AlpacaGateway"] = None,
-        position_store: Optional["PositionStore"] = None,
-        memory_service: Optional[TradingMemoryService] = None,
+        settings: Settings | None = None,
+        market_gateway: AlpacaMarketDataGateway | None = None,
+        alpaca_gateway: AlpacaGateway | None = None,
+        position_store: PositionStore | None = None,
+        memory_service: TradingMemoryService | None = None,
     ) -> None:
         self.settings = settings or Settings()
         self.market_gateway = market_gateway
@@ -47,13 +48,13 @@ class CouncilOrchestrator:
         self.memory_service = memory_service or create_trading_memory_service()
 
         # Initialize services
-        self.discovery_service: Optional[OpportunityDiscoveryService] = None
-        self.committee_service: Optional[CommitteeService] = None
-        self.risk_service: Optional[RiskEvaluationService] = None
-        self.instrument_selector: Optional[InstrumentSelectorService] = None
-        self.execution_service: Optional[ExecutionService] = None
+        self.discovery_service: OpportunityDiscoveryService | None = None
+        self.committee_service: CommitteeService | None = None
+        self.risk_service: RiskEvaluationService | None = None
+        self.instrument_selector: InstrumentSelectorService | None = None
+        self.execution_service: ExecutionService | None = None
 
-        self._current_run: Optional[CouncilRun] = None
+        self._current_run: CouncilRun | None = None
         self._event_callbacks: list = []
 
     def _init_services(self) -> None:
@@ -179,20 +180,19 @@ class CouncilOrchestrator:
         """Run M2 discovery stage."""
         stage_start = time.time()
 
-        self._init_services()
-
         # For demo mode, use synthetic candidates
         if run.demo_mode:
             run.candidate_set = self._create_demo_candidate_set()
             run.candidates_discovered = len(run.candidate_set.get("candidates", []))
         else:
             # Real discovery
+            self._init_services()
             candidate_set = await self.discovery_service.discover()
             run.candidate_set = candidate_set.model_dump()
             run.candidates_discovered = candidate_set.final_count
 
         run.candidates_analyzed = min(run.candidates_discovered, run.max_candidates)
-        run.stage_timings["discovery"] = int((time.time() - time.time()) * 1000)
+        run.stage_timings["discovery"] = int((time.time() - stage_start) * 1000)
 
         # Emit candidate events
         for candidate in run.candidate_set.get("candidates", [])[:run.max_candidates]:
@@ -363,17 +363,17 @@ class CouncilOrchestrator:
             "runtime_ms": 150,
         }
 
-    def get_current_run(self) -> Optional[CouncilRun]:
+    def get_current_run(self) -> CouncilRun | None:
         """Get the current run."""
         return self._current_run
 
 
 def create_council_orchestrator(
-    settings: Optional[Settings] = None,
-    market_gateway: Optional["AlpacaMarketDataGateway"] = None,
-    alpaca_gateway: Optional["AlpacaGateway"] = None,
-    position_store: Optional["PositionStore"] = None,
-    memory_service: Optional[TradingMemoryService] = None,
+    settings: Settings | None = None,
+    market_gateway: AlpacaMarketDataGateway | None = None,
+    alpaca_gateway: AlpacaGateway | None = None,
+    position_store: PositionStore | None = None,
+    memory_service: TradingMemoryService | None = None,
 ) -> CouncilOrchestrator:
     """Factory function to create council orchestrator."""
     return CouncilOrchestrator(

@@ -5,8 +5,6 @@ from __future__ import annotations
 from datetime import date, datetime
 from decimal import Decimal
 
-import pytest
-
 from app.options.models import (
     InstrumentNoTradeReason,
     OptionContract,
@@ -15,9 +13,9 @@ from app.options.models import (
     OptionDataQualityStatus,
     OptionMarketSnapshot,
     OptionQuote,
+    OptionsGreeks,
     OptionTrade,
     OptionType,
-    OptionsGreeks,
 )
 
 

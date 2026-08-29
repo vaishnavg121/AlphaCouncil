@@ -7,16 +7,14 @@ from decimal import Decimal
 
 import pytest
 
+from app.options.filters import OptionFilterConfig, OptionFilters, apply_option_filters
 from app.options.models import (
     OptionContract,
-    OptionContractStatus,
+    OptionDataQualityStatus,
     OptionMarketSnapshot,
     OptionQuote,
     OptionType,
-    OptionsGreeks,
-    OptionDataQualityStatus,
 )
-from app.options.filters import OptionFilterConfig, OptionFilters, apply_option_filters
 from app.risk.models import RiskBudget
 
 
