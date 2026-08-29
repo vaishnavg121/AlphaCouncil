@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import SecretStr, model_validator
+from pydantic import AnyHttpUrl, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -82,6 +82,11 @@ class Settings(BaseSettings):
     execution_track_timeout_seconds: int = 60
     execution_poll_interval_seconds: float = 2.0
     execution_diagnostic_max_notional: float = 500.0
+
+    # API Configuration
+    port: int = 8000
+    debug: bool = False
+    cors_origins: list[AnyHttpUrl] = []
 
     @model_validator(mode="after")
     def reject_live_trading(self) -> Settings:

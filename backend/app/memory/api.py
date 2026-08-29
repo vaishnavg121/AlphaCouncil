@@ -5,7 +5,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from app.memory.models import (
@@ -35,6 +35,11 @@ def get_memory_service() -> TradingMemoryService:
     if _memory_service is None:
         _memory_service = create_trading_memory_service()
     return _memory_service
+
+
+def get_memory_service_dep() -> TradingMemoryService:
+    """FastAPI dependency for memory service."""
+    return get_memory_service()
 
 
 # =============================================================================
@@ -74,20 +79,18 @@ class EvaluatePositionRequest(BaseModel):
 @router.get("/trades", response_model=list[TradeRecord])
 async def list_trades(
     limit: int = Query(100, ge=1, le=1000),
-    service: TradingMemoryService = None,
+    service: TradingMemoryService = Depends(get_memory_service_dep),
 ) -> list[TradeRecord]:
     """Get recent trade records."""
-    service = service or get_memory_service()
     return service.get_recent_trades(limit)
 
 
 @router.get("/trades/{trade_id}", response_model=TradeRecord)
 async def get_trade(
     trade_id: str,
-    service: TradingMemoryService = None,
+    service: TradingMemoryService = Depends(get_memory_service_dep),
 ) -> TradeRecord:
     """Get a specific trade record."""
-    service = service or get_memory_service()
     trade = service.get_trade(trade_id)
     if not trade:
         raise HTTPException(status_code=404, detail="Trade not found")
@@ -100,28 +103,25 @@ async def get_trade(
 
 @router.get("/performance", response_model=PerformanceSummary)
 async def get_performance(
-    service: TradingMemoryService = None,
+    service: TradingMemoryService = Depends(get_memory_service_dep),
 ) -> PerformanceSummary:
     """Get comprehensive performance summary."""
-    service = service or get_memory_service()
     return service.get_performance_summary()
 
 
 @router.get("/calibration", response_model=CalibrationSummary)
 async def get_calibration(
-    service: TradingMemoryService = None,
+    service: TradingMemoryService = Depends(get_memory_service_dep),
 ) -> CalibrationSummary:
     """Get committee confidence calibration."""
-    service = service or get_memory_service()
     return service.get_committee_calibration()
 
 
 @router.post("/calibration/recompute", response_model=CalibrationSummary)
 async def recompute_calibration(
-    service: TradingMemoryService = None,
+    service: TradingMemoryService = Depends(get_memory_service_dep),
 ) -> CalibrationSummary:
     """Recompute calibration from all agent data."""
-    service = service or get_memory_service()
     return service.recompute_calibration()
 
 
@@ -132,10 +132,9 @@ async def recompute_calibration(
 @router.get("/agents/{agent_name}", response_model=list[AgentPerformanceRecord])
 async def get_agent_performance(
     agent_name: str,
-    service: TradingMemoryService = None,
+    service: TradingMemoryService = Depends(get_memory_service_dep),
 ) -> list[AgentPerformanceRecord]:
     """Get performance records for a specific agent."""
-    service = service or get_memory_service()
     if agent_name not in ["QUANT", "BULL", "BEAR", "REGIME"]:
         raise HTTPException(status_code=400, detail="Invalid agent name")
     return service.get_agent_performance(agent_name)
@@ -147,19 +146,17 @@ async def get_agent_performance(
 
 @router.get("/disagreement", response_model=list[DisagreementAnalytics])
 async def get_disagreement_stats(
-    service: TradingMemoryService = None,
+    service: TradingMemoryService = Depends(get_memory_service_dep),
 ) -> list[DisagreementAnalytics]:
     """Get outcomes by disagreement level."""
-    service = service or get_memory_service()
     return list(service.get_disagreement_stats())
 
 
 @router.get("/exits", response_model=list[ExitReasonAnalytics])
 async def get_exit_reason_stats(
-    service: TradingMemoryService = None,
+    service: TradingMemoryService = Depends(get_memory_service_dep),
 ) -> list[ExitReasonAnalytics]:
     """Get outcomes by exit reason."""
-    service = service or get_memory_service()
     return list(service.get_exit_reason_stats())
 
 
@@ -170,10 +167,9 @@ async def get_exit_reason_stats(
 @router.post("/similar", response_model=list[SimilarTradeResult])
 async def get_similar_trades(
     request: SimilarTradesRequest,
-    service: TradingMemoryService = None,
+    service: TradingMemoryService = Depends(get_memory_service_dep),
 ) -> list[SimilarTradeResult]:
     """Find historically similar trades."""
-    service = service or get_memory_service()
     query = request.model_dump(exclude_none=True)
     k = query.pop("k", 10)
     return service.get_similar_trades(query, k)
@@ -190,10 +186,9 @@ async def get_similar_trades_get(
     committee_disagreement: Optional[str] = None,
     instrument_type: Optional[str] = None,
     k: int = Query(10, ge=1, le=50),
-    service: TradingMemoryService = None,
+    service: TradingMemoryService = Depends(get_memory_service_dep),
 ) -> list[SimilarTradeResult]:
     """Find historically similar trades (GET version)."""
-    service = service or get_memory_service()
     query = {
         k: v for k, v in {
             "direction": direction,
@@ -216,10 +211,9 @@ async def get_similar_trades_get(
 @router.post("/context", response_model=HistoricalContext)
 async def get_historical_context(
     request: SimilarTradesRequest,
-    service: TradingMemoryService = None,
+    service: TradingMemoryService = Depends(get_memory_service_dep),
 ) -> HistoricalContext:
     """Get historical context for a prospective trade."""
-    service = service or get_memory_service()
     query = request.model_dump(exclude_none=True)
     k = query.pop("k", 10)
     return service.get_historical_context(query, k)
@@ -236,10 +230,9 @@ async def get_historical_context_get(
     committee_disagreement: Optional[str] = None,
     instrument_type: Optional[str] = None,
     k: int = Query(10, ge=1, le=50),
-    service: TradingMemoryService = None,
+    service: TradingMemoryService = Depends(get_memory_service_dep),
 ) -> HistoricalContext:
     """Get historical context for a prospective trade (GET version)."""
-    service = service or get_memory_service()
     query = {
         k: v for k, v in {
             "direction": direction,
@@ -263,13 +256,12 @@ async def get_historical_context_get(
 async def evaluate_position(
     position_id: str,
     request: EvaluatePositionRequest,
-    service: TradingMemoryService = None,
+    service: TradingMemoryService = Depends(get_memory_service_dep),
 ) -> dict:
     """Evaluate a closed position (idempotent).
 
     Creates or updates the trade record for the given position.
     """
-    service = service or get_memory_service()
 
     # Fetch position from position store
     if not service.position_store:
@@ -302,3 +294,4 @@ async def memory_health() -> dict:
         "paper_trading": True,
         "disclaimer": "All performance data represents PAPER TRADING only. Not real money.",
     }
+
