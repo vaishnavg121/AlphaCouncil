@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     app_env: str = "development"
     trading_mode: Literal["paper"] = "paper"
     enable_execution: bool = False
+    enable_paper_execution: bool = False
 
     alpaca_api_key: SecretStr | None = None
     alpaca_secret_key: SecretStr | None = None
@@ -74,6 +75,14 @@ class Settings(BaseSettings):
     option_require_greeks: bool = False
     option_require_iv: bool = False
 
+    # M6 Execution Configuration
+    max_execution_price_deviation_pct: float = 0.005
+    max_execution_spread_pct: float = 0.02
+    execution_plan_ttl_seconds: int = 30
+    execution_track_timeout_seconds: int = 60
+    execution_poll_interval_seconds: float = 2.0
+    execution_diagnostic_max_notional: float = 500.0
+
     @model_validator(mode="after")
     def reject_live_trading(self) -> Settings:
         """Refuse any configuration that could authorize a live Alpaca connection."""
@@ -81,8 +90,17 @@ class Settings(BaseSettings):
             raise ValueError("ALPACA_LIVE_TRADE=true is prohibited by AlphaCouncil safety policy")
         if self.trading_mode != "paper":
             raise ValueError("TRADING_MODE must be paper during development")
-        if self.enable_execution:
-            raise ValueError("ENABLE_EXECUTION=true is prohibited during M0")
+        return self
+
+    @model_validator(mode="after")
+    def validate_execution_config(self) -> Settings:
+        """Validate execution configuration consistency."""
+        if self.enable_paper_execution and not self.enable_execution:
+            raise ValueError("ENABLE_PAPER_EXECUTION requires ENABLE_EXECUTION=true")
+        if self.enable_paper_execution and self.trading_mode != "paper":
+            raise ValueError("ENABLE_PAPER_EXECUTION requires TRADING_MODE=paper")
+        if self.enable_paper_execution and self.alpaca_live_trade:
+            raise ValueError("ENABLE_PAPER_EXECUTION requires ALPACA_LIVE_TRADE=false")
         return self
 
     @property

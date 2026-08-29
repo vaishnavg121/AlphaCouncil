@@ -26,5 +26,10 @@ def test_no_m0_source_contains_alpaca_mutation_calls() -> None:
         "close_all_positions(",
         "exercise_options(",
     )
-    source = "\n".join(path.read_text(encoding="utf-8") for path in source_root.rglob("*.py"))
+    # M6 execution module is allowed to have mutation calls
+    source = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in source_root.rglob("*.py")
+        if "execution" not in path.parts
+    )
     assert all(call not in source for call in forbidden_calls)

@@ -51,11 +51,38 @@ def test_non_paper_mode_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
         settings_without_dotenv()
 
 
-def test_execution_cannot_be_enabled_during_m0(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_execution_requires_paper_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Execution requires TRADING_MODE=paper."""
     clear_settings_environment(monkeypatch)
     monkeypatch.setenv("ENABLE_EXECUTION", "true")
-    with pytest.raises(ValidationError, match="prohibited during M0"):
+    monkeypatch.setenv("ENABLE_PAPER_EXECUTION", "true")
+    monkeypatch.setenv("TRADING_MODE", "live")
+    with pytest.raises(ValidationError, match="Input should be 'paper'"):
         settings_without_dotenv()
+
+
+def test_execution_requires_live_false(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Execution requires ALPACA_LIVE_TRADE=false."""
+    clear_settings_environment(monkeypatch)
+    monkeypatch.setenv("ENABLE_EXECUTION", "true")
+    monkeypatch.setenv("ENABLE_PAPER_EXECUTION", "true")
+    monkeypatch.setenv("ALPACA_LIVE_TRADE", "true")
+    with pytest.raises(ValidationError, match="ALPACA_LIVE_TRADE=true is prohibited"):
+        settings_without_dotenv()
+
+
+def test_execution_requires_all_paper_flags(monkeypatch: pytest.MonkeyPatch) -> None:
+    clear_settings_environment(monkeypatch)
+    monkeypatch.setenv("ENABLE_EXECUTION", "true")
+    monkeypatch.setenv("ENABLE_PAPER_EXECUTION", "true")
+    monkeypatch.setenv("TRADING_MODE", "paper")
+    monkeypatch.setenv("ALPACA_LIVE_TRADE", "false")
+    # This should work with all paper flags set correctly
+    settings = settings_without_dotenv()
+    assert settings.enable_execution is True
+    assert settings.enable_paper_execution is True
+    assert settings.trading_mode == "paper"
+    assert settings.alpaca_live_trade is False
 
 
 def test_missing_credentials_cannot_enable_execution(monkeypatch: pytest.MonkeyPatch) -> None:
