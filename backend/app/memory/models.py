@@ -10,11 +10,10 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 from uuid import uuid4
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 # =============================================================================
 # Trade Outcome Classification
@@ -105,14 +104,14 @@ class TradeRecord(BaseModel):
     trade_id: str = Field(default_factory=lambda: str(uuid4()))
 
     # Provenance chain - NEVER use symbol alone as trade identity
-    candidate_id: Optional[str] = None
-    committee_result_id: Optional[str] = None
-    trade_thesis_id: Optional[str] = None
-    risk_evaluation_id: Optional[str] = None
-    instrument_plan_id: Optional[str] = None
-    entry_execution_id: Optional[str] = None
-    position_id: Optional[str] = None
-    exit_execution_id: Optional[str] = None
+    candidate_id: str | None = None
+    committee_result_id: str | None = None
+    trade_thesis_id: str | None = None
+    risk_evaluation_id: str | None = None
+    instrument_plan_id: str | None = None
+    entry_execution_id: str | None = None
+    position_id: str | None = None
+    exit_execution_id: str | None = None
 
     # Trade basics
     symbol: str
@@ -120,58 +119,58 @@ class TradeRecord(BaseModel):
     direction: Literal["LONG", "SHORT"]
 
     # Timestamps
-    discovery_timestamp: Optional[datetime] = None
-    thesis_timestamp: Optional[datetime] = None
-    entry_timestamp: Optional[datetime] = None
-    exit_timestamp: Optional[datetime] = None
+    discovery_timestamp: datetime | None = None
+    thesis_timestamp: datetime | None = None
+    entry_timestamp: datetime | None = None
+    exit_timestamp: datetime | None = None
 
     # Prices
-    entry_price: Optional[Decimal] = None
-    exit_price: Optional[Decimal] = None
+    entry_price: Decimal | None = None
+    exit_price: Decimal | None = None
 
     # Quantities
-    entry_quantity: Optional[Decimal] = None
-    exit_quantity: Optional[Decimal] = None
+    entry_quantity: Decimal | None = None
+    exit_quantity: Decimal | None = None
 
     # Notionals
-    entry_notional: Optional[Decimal] = None
-    exit_notional: Optional[Decimal] = None
+    entry_notional: Decimal | None = None
+    exit_notional: Decimal | None = None
 
     # PnL
-    realized_pnl: Optional[Decimal] = None
-    return_pct: Optional[Decimal] = None
+    realized_pnl: Decimal | None = None
+    return_pct: Decimal | None = None
 
     # Duration
-    holding_duration_seconds: Optional[int] = None
+    holding_duration_seconds: int | None = None
 
     # MFE / MAE
-    mfe_amount: Optional[Decimal] = None
-    mfe_pct: Optional[Decimal] = None
-    mfe_r_multiple: Optional[Decimal] = None
-    mae_amount: Optional[Decimal] = None
-    mae_pct: Optional[Decimal] = None
-    mae_r_multiple: Optional[Decimal] = None
+    mfe_amount: Decimal | None = None
+    mfe_pct: Decimal | None = None
+    mfe_r_multiple: Decimal | None = None
+    mae_amount: Decimal | None = None
+    mae_pct: Decimal | None = None
+    mae_r_multiple: Decimal | None = None
 
     # Risk
-    initial_risk_amount: Optional[Decimal] = None
-    r_multiple: Optional[Decimal] = None
-    risk_budget: Optional[Decimal] = None
-    max_position_notional: Optional[Decimal] = None
-    initial_stop: Optional[Decimal] = None
+    initial_risk_amount: Decimal | None = None
+    r_multiple: Decimal | None = None
+    risk_budget: Decimal | None = None
+    max_position_notional: Decimal | None = None
+    initial_stop: Decimal | None = None
 
     # Exit
     exit_reason_codes: tuple[str, ...] = ()
 
     # Committee
-    committee_confidence: Optional[Decimal] = None
-    committee_disagreement: Optional[str] = None  # DisagreementBucket value
+    committee_confidence: Decimal | None = None
+    committee_disagreement: str | None = None  # DisagreementBucket value
 
     # Instrument selection
-    instrument_selection_score: Optional[Decimal] = None
+    instrument_selection_score: Decimal | None = None
 
     # Risk decision
-    risk_decision: Optional[str] = None  # RiskDecisionType value
-    constitution_version: Optional[str] = None
+    risk_decision: str | None = None  # RiskDecisionType value
+    constitution_version: str | None = None
 
     # Data quality
     data_quality_flags: tuple[str, ...] = ()
@@ -209,12 +208,12 @@ class TradeOutcome(BaseModel):
     outcome_type: TradeOutcomeType
 
     # Numerical metrics
-    realized_pnl: Optional[Decimal] = None
-    return_pct: Optional[Decimal] = None
-    r_multiple: Optional[Decimal] = None
-    mfe_pct: Optional[Decimal] = None
-    mae_pct: Optional[Decimal] = None
-    holding_duration_seconds: Optional[int] = None
+    realized_pnl: Decimal | None = None
+    return_pct: Decimal | None = None
+    r_multiple: Decimal | None = None
+    mfe_pct: Decimal | None = None
+    mae_pct: Decimal | None = None
+    holding_duration_seconds: int | None = None
 
     # Computed at evaluation time
     evaluated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
@@ -237,9 +236,9 @@ class ThesisOutcomeEvaluation(BaseModel):
     correctness: ThesisCorrectness
 
     # Underlying movement evidence
-    underlying_entry_price: Optional[Decimal] = None
-    underlying_exit_price: Optional[Decimal] = None
-    underlying_move_pct: Optional[Decimal] = None
+    underlying_entry_price: Decimal | None = None
+    underlying_exit_price: Decimal | None = None
+    underlying_move_pct: Decimal | None = None
 
     # Materiality threshold used
     materiality_threshold_pct: Decimal = Decimal("0.02")  # 2% default
@@ -265,16 +264,16 @@ class ExecutionQualityEvaluation(BaseModel):
     trade_id: str
 
     # Entry
-    entry_planned_price: Optional[Decimal] = None
-    entry_actual_price: Optional[Decimal] = None
-    entry_slippage_amount: Optional[Decimal] = None
-    entry_slippage_pct: Optional[Decimal] = None
+    entry_planned_price: Decimal | None = None
+    entry_actual_price: Decimal | None = None
+    entry_slippage_amount: Decimal | None = None
+    entry_slippage_pct: Decimal | None = None
 
     # Exit
-    exit_planned_price: Optional[Decimal] = None
-    exit_actual_price: Optional[Decimal] = None
-    exit_slippage_amount: Optional[Decimal] = None
-    exit_slippage_pct: Optional[Decimal] = None
+    exit_planned_price: Decimal | None = None
+    exit_actual_price: Decimal | None = None
+    exit_slippage_amount: Decimal | None = None
+    exit_slippage_pct: Decimal | None = None
 
     evaluated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -299,14 +298,14 @@ class ExitQualityEvaluation(BaseModel):
 
     trade_id: str
 
-    mfe_pct: Optional[Decimal] = None
-    realized_return_pct: Optional[Decimal] = None
+    mfe_pct: Decimal | None = None
+    realized_return_pct: Decimal | None = None
 
     # Captured profit ratio = realized favorable return / MFE
-    captured_profit_ratio: Optional[Decimal] = None
+    captured_profit_ratio: Decimal | None = None
 
     # Giveback from MFE
-    giveback_from_mfe_pct: Optional[Decimal] = None
+    giveback_from_mfe_pct: Decimal | None = None
 
     evaluated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -322,12 +321,12 @@ class RiskOutcomeEvaluation(BaseModel):
 
     trade_id: str
 
-    authorized_risk: Optional[Decimal] = None
-    realized_loss: Optional[Decimal] = None
-    mae_amount: Optional[Decimal] = None
+    authorized_risk: Decimal | None = None
+    realized_loss: Decimal | None = None
+    mae_amount: Decimal | None = None
 
     # Utilization
-    risk_utilization_pct: Optional[Decimal] = None  # realized_loss / authorized_risk
+    risk_utilization_pct: Decimal | None = None  # realized_loss / authorized_risk
 
     # Trigger flags
     hard_stop_triggered: bool = False
@@ -336,10 +335,10 @@ class RiskOutcomeEvaluation(BaseModel):
 
     # M4 behavior
     m4_reduced_exposure: bool = False
-    reduction_reason: Optional[str] = None
+    reduction_reason: str | None = None
 
     # Outcome
-    loss_within_authorized: Optional[bool] = None
+    loss_within_authorized: bool | None = None
 
     evaluated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -356,21 +355,21 @@ class InstrumentOutcomeEvaluation(BaseModel):
     trade_id: str
 
     instrument_type: str  # STOCK, ETF, OPTION
-    selection_score: Optional[Decimal] = None
+    selection_score: Decimal | None = None
 
     # Liquidity quality
-    avg_spread_pct: Optional[Decimal] = None
-    avg_dollar_volume: Optional[Decimal] = None
+    avg_spread_pct: Decimal | None = None
+    avg_dollar_volume: Decimal | None = None
 
     # Execution quality
-    execution_quality: Optional[ExecutionQualityEvaluation] = None
+    execution_quality: ExecutionQualityEvaluation | None = None
 
     # Capital/risk utilization
-    capital_utilization_pct: Optional[Decimal] = None
-    risk_utilization_pct: Optional[Decimal] = None
+    capital_utilization_pct: Decimal | None = None
+    risk_utilization_pct: Decimal | None = None
 
     # Result
-    trade_outcome: Optional[TradeOutcomeType] = None
+    trade_outcome: TradeOutcomeType | None = None
 
     evaluated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -399,15 +398,15 @@ class AgentPerformanceRecord(BaseModel):
     contradicting_evidence_ids: tuple[str, ...] = ()
 
     # Outcome comparison
-    direction_correct: Optional[bool] = None
-    calibration_target: Optional[int] = None  # 1=correct, 0=incorrect, None=inconclusive
+    direction_correct: bool | None = None
+    calibration_target: int | None = None  # 1=correct, 0=incorrect, None=inconclusive
 
     # Committee context
-    committee_agreement: Optional[bool] = None  # Agreed with final committee direction?
+    committee_agreement: bool | None = None  # Agreed with final committee direction?
 
     # Trade result
-    trade_profitable: Optional[bool] = None
-    r_multiple: Optional[Decimal] = None
+    trade_profitable: bool | None = None
+    r_multiple: Decimal | None = None
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -426,19 +425,19 @@ class CommitteePerformanceSummary(BaseModel):
     losses: int = 0
     breakevens: int = 0
 
-    directional_accuracy: Optional[Decimal] = None
-    win_rate: Optional[Decimal] = None
+    directional_accuracy: Decimal | None = None
+    win_rate: Decimal | None = None
 
-    mean_r_multiple: Optional[Decimal] = None
-    median_r_multiple: Optional[Decimal] = None
-    mean_return_pct: Optional[Decimal] = None
+    mean_r_multiple: Decimal | None = None
+    median_r_multiple: Decimal | None = None
+    mean_return_pct: Decimal | None = None
 
-    mean_mfe_pct: Optional[Decimal] = None
-    mean_mae_pct: Optional[Decimal] = None
+    mean_mfe_pct: Decimal | None = None
+    mean_mae_pct: Decimal | None = None
 
-    avg_holding_period_seconds: Optional[int] = None
+    avg_holding_period_seconds: int | None = None
 
-    mean_committee_confidence: Optional[Decimal] = None
+    mean_committee_confidence: Decimal | None = None
 
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
@@ -456,9 +455,9 @@ class CalibrationBucket(BaseModel):
     bucket_high: Decimal  # exclusive (except last bucket)
 
     sample_count: int = 0
-    mean_predicted_confidence: Optional[Decimal] = None
-    observed_success_rate: Optional[Decimal] = None
-    calibration_gap: Optional[Decimal] = None  # mean_confidence - observed_accuracy
+    mean_predicted_confidence: Decimal | None = None
+    observed_success_rate: Decimal | None = None
+    calibration_gap: Decimal | None = None  # mean_confidence - observed_accuracy
 
 
 class CalibrationSummary(BaseModel):
@@ -467,8 +466,8 @@ class CalibrationSummary(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     buckets: tuple[CalibrationBucket, ...] = ()
-    brier_score: Optional[Decimal] = None
-    ece: Optional[Decimal] = None  # Expected Calibration Error
+    brier_score: Decimal | None = None
+    ece: Decimal | None = None  # Expected Calibration Error
     min_sample_size: int = 20
 
     overall_insight: CalibrationInsight = CalibrationInsight.INSUFFICIENT_DATA
@@ -506,13 +505,13 @@ class SimilarTradeResult(BaseModel):
     differing_features: tuple[SimilarityComponent, ...] = ()
 
     # Outcome summary for context
-    outcome_type: Optional[TradeOutcomeType] = None
-    return_pct: Optional[Decimal] = None
-    r_multiple: Optional[Decimal] = None
-    direction: Optional[str] = None
-    instrument_type: Optional[str] = None
-    committee_confidence: Optional[Decimal] = None
-    disagreement: Optional[str] = None
+    outcome_type: TradeOutcomeType | None = None
+    return_pct: Decimal | None = None
+    r_multiple: Decimal | None = None
+    direction: str | None = None
+    instrument_type: str | None = None
+    committee_confidence: Decimal | None = None
+    disagreement: str | None = None
 
 
 # =============================================================================
@@ -529,17 +528,17 @@ class HistoricalContext(BaseModel):
     top_similar_trade_ids: tuple[str, ...] = ()
 
     # Aggregate statistics
-    win_rate: Optional[Decimal] = None
-    directional_accuracy: Optional[Decimal] = None
-    mean_r_multiple: Optional[Decimal] = None
-    median_r_multiple: Optional[Decimal] = None
-    mean_return_pct: Optional[Decimal] = None
-    mean_mfe_pct: Optional[Decimal] = None
-    mean_mae_pct: Optional[Decimal] = None
-    avg_holding_period_seconds: Optional[int] = None
+    win_rate: Decimal | None = None
+    directional_accuracy: Decimal | None = None
+    mean_r_multiple: Decimal | None = None
+    median_r_multiple: Decimal | None = None
+    mean_return_pct: Decimal | None = None
+    mean_mfe_pct: Decimal | None = None
+    mean_mae_pct: Decimal | None = None
+    avg_holding_period_seconds: int | None = None
 
     # Committee calibration
-    committee_calibration: Optional[CalibrationSummary] = None
+    committee_calibration: CalibrationSummary | None = None
 
     # Agent historical statistics
     agent_stats: dict[str, dict[str, Any]] = {}
@@ -565,10 +564,10 @@ class DisagreementAnalytics(BaseModel):
 
     bucket: DisagreementBucket
     count: int = 0
-    win_rate: Optional[Decimal] = None
-    directional_accuracy: Optional[Decimal] = None
-    mean_r_multiple: Optional[Decimal] = None
-    mean_return_pct: Optional[Decimal] = None
+    win_rate: Decimal | None = None
+    directional_accuracy: Decimal | None = None
+    mean_r_multiple: Decimal | None = None
+    mean_return_pct: Decimal | None = None
 
 
 # =============================================================================
@@ -582,9 +581,9 @@ class RegimeAnalytics(BaseModel):
 
     regime: TrendRegime
     count: int = 0
-    win_rate: Optional[Decimal] = None
-    mean_r_multiple: Optional[Decimal] = None
-    directional_accuracy: Optional[Decimal] = None
+    win_rate: Decimal | None = None
+    mean_r_multiple: Decimal | None = None
+    directional_accuracy: Decimal | None = None
 
 
 # =============================================================================
@@ -598,10 +597,10 @@ class ExitReasonAnalytics(BaseModel):
 
     reason_category: ExitReasonCategory
     count: int = 0
-    mean_r_multiple: Optional[Decimal] = None
-    mean_return_pct: Optional[Decimal] = None
-    mean_mfe_capture: Optional[Decimal] = None
-    mean_holding_duration_seconds: Optional[int] = None
+    mean_r_multiple: Decimal | None = None
+    mean_return_pct: Decimal | None = None
+    mean_mfe_capture: Decimal | None = None
+    mean_holding_duration_seconds: int | None = None
 
 
 # =============================================================================
@@ -616,17 +615,17 @@ class RiskReductionAnalytics(BaseModel):
     approved_count: int = 0
     reduced_count: int = 0
 
-    approved_win_rate: Optional[Decimal] = None
-    reduced_win_rate: Optional[Decimal] = None
+    approved_win_rate: Decimal | None = None
+    reduced_win_rate: Decimal | None = None
 
-    approved_mean_r: Optional[Decimal] = None
-    reduced_mean_r: Optional[Decimal] = None
+    approved_mean_r: Decimal | None = None
+    reduced_mean_r: Decimal | None = None
 
-    approved_mae: Optional[Decimal] = None
-    reduced_mae: Optional[Decimal] = None
+    approved_mae: Decimal | None = None
+    reduced_mae: Decimal | None = None
 
-    approved_mfe: Optional[Decimal] = None
-    reduced_mfe: Optional[Decimal] = None
+    approved_mfe: Decimal | None = None
+    reduced_mfe: Decimal | None = None
 
 
 # =============================================================================
@@ -640,10 +639,10 @@ class SignalAttribution(BaseModel):
 
     signal_name: str  # momentum, trend, volume, volatility, mean_reversion, liquidity, quality
     count: int = 0
-    mean_score_when_win: Optional[Decimal] = None
-    mean_score_when_loss: Optional[Decimal] = None
-    win_rate_above_median: Optional[Decimal] = None
-    win_rate_below_median: Optional[Decimal] = None
+    mean_score_when_win: Decimal | None = None
+    mean_score_when_loss: Decimal | None = None
+    win_rate_above_median: Decimal | None = None
+    win_rate_below_median: Decimal | None = None
 
 
 # =============================================================================
@@ -661,7 +660,7 @@ class PerformanceSummary(BaseModel):
     disagreement: tuple[DisagreementAnalytics, ...] = ()
     regime: tuple[RegimeAnalytics, ...] = ()
     exit_reasons: tuple[ExitReasonAnalytics, ...] = ()
-    risk_reduction: Optional[RiskReductionAnalytics] = None
+    risk_reduction: RiskReductionAnalytics | None = None
     signal_attribution: tuple[SignalAttribution, ...] = ()
     agent_performance: dict[str, dict[str, Any]] = {}
 

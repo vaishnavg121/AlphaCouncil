@@ -2,24 +2,24 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
-from typing import Optional
+from typing import Any
 
+from fastapi import APIRouter, HTTPException
+
+from app.core.config import Settings
 from app.orchestration.models import (
+    CandidateAnalysis,
     CouncilRun,
+    CouncilRunEvent,
     CouncilRunRequest,
     CouncilRunResponse,
-    CouncilRunStatus,
-    CouncilRunEvent,
-    CouncilRunEventType,
 )
 from app.orchestration.service import CouncilOrchestrator, create_council_orchestrator
-from app.core.config import Settings
 
 router = APIRouter(prefix="/council", tags=["council"])
 
 # Global orchestrator instance
-_orchestrator: Optional[CouncilOrchestrator] = None
+_orchestrator: CouncilOrchestrator | None = None
 
 
 def get_orchestrator() -> CouncilOrchestrator:
@@ -39,6 +39,12 @@ async def start_council_run(
     return await orchestrator.run_council(request)
 
 
+@router.get("/current", response_model=CouncilRun | None)
+async def get_current_council_run() -> CouncilRun | None:
+    """Return the canonical in-memory run used by the local dashboard."""
+    return get_orchestrator().get_current_run()
+
+
 @router.get("/run/{run_id}", response_model=CouncilRun)
 async def get_council_run(
     run_id: str,
@@ -49,6 +55,15 @@ async def get_council_run(
     if not run or run.run_id != run_id:
         raise HTTPException(status_code=404, detail="Run not found")
     return run
+
+
+@router.get("/run/{run_id}/candidates", response_model=list[CandidateAnalysis])
+async def get_council_run_candidates(run_id: str) -> list[CandidateAnalysis]:
+    """Return candidate views derived directly from the canonical CouncilRun."""
+    run = get_orchestrator().get_current_run()
+    if not run or run.run_id != run_id:
+        raise HTTPException(status_code=404, detail="Run not found")
+    return run.candidate_analyses
 
 
 @router.get("/run/{run_id}/events")
@@ -62,7 +77,7 @@ async def get_council_run_events(
 
 
 @router.get("/status")
-async def council_status() -> dict:
+async def council_status() -> dict[str, Any]:
     """Get council system status."""
     settings = Settings()
     return {

@@ -2,31 +2,25 @@
 
 from __future__ import annotations
 
-from decimal import Decimal
-from typing import Optional
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from app.memory.models import (
-    TradeRecord,
-    TradeOutcome,
-    TradeOutcomeType,
-    PerformanceSummary,
-    HistoricalContext,
-    SimilarTradeResult,
     AgentPerformanceRecord,
     CalibrationSummary,
     DisagreementAnalytics,
     ExitReasonAnalytics,
-    AgentStance,
+    HistoricalContext,
+    PerformanceSummary,
+    SimilarTradeResult,
+    TradeRecord,
 )
 from app.memory.service import TradingMemoryService, create_trading_memory_service
 
 router = APIRouter(prefix="/memory", tags=["trading-memory"])
 
 # Global service instance (initialized on startup)
-_memory_service: Optional[TradingMemoryService] = None
+_memory_service: TradingMemoryService | None = None
 
 
 def get_memory_service() -> TradingMemoryService:
@@ -48,28 +42,28 @@ def get_memory_service_dep() -> TradingMemoryService:
 
 class SimilarTradesRequest(BaseModel):
     """Request for similar trades query."""
-    direction: Optional[str] = None
-    trend_regime: Optional[str] = None
-    volatility_bucket: Optional[str] = None
-    momentum: Optional[float] = None
-    rsi: Optional[float] = None
-    committee_confidence: Optional[float] = None
-    committee_disagreement: Optional[str] = None
-    instrument_type: Optional[str] = None
+    direction: str | None = None
+    trend_regime: str | None = None
+    volatility_bucket: str | None = None
+    momentum: float | None = None
+    rsi: float | None = None
+    committee_confidence: float | None = None
+    committee_disagreement: str | None = None
+    instrument_type: str | None = None
     k: int = 10
 
 
 class EvaluatePositionRequest(BaseModel):
     """Request to evaluate a closed position (idempotent)."""
     position_id: str
-    committee_result_id: Optional[str] = None
-    trade_thesis_id: Optional[str] = None
-    risk_evaluation_id: Optional[str] = None
-    instrument_plan_id: Optional[str] = None
-    entry_execution_id: Optional[str] = None
-    exit_execution_id: Optional[str] = None
-    underlying_entry_price: Optional[float] = None
-    underlying_exit_price: Optional[float] = None
+    committee_result_id: str | None = None
+    trade_thesis_id: str | None = None
+    risk_evaluation_id: str | None = None
+    instrument_plan_id: str | None = None
+    entry_execution_id: str | None = None
+    exit_execution_id: str | None = None
+    underlying_entry_price: float | None = None
+    underlying_exit_price: float | None = None
 
 
 # =============================================================================
@@ -177,14 +171,14 @@ async def get_similar_trades(
 
 @router.get("/similar", response_model=list[SimilarTradeResult])
 async def get_similar_trades_get(
-    direction: Optional[str] = None,
-    trend_regime: Optional[str] = None,
-    volatility_bucket: Optional[str] = None,
-    momentum: Optional[float] = None,
-    rsi: Optional[float] = None,
-    committee_confidence: Optional[float] = None,
-    committee_disagreement: Optional[str] = None,
-    instrument_type: Optional[str] = None,
+    direction: str | None = None,
+    trend_regime: str | None = None,
+    volatility_bucket: str | None = None,
+    momentum: float | None = None,
+    rsi: float | None = None,
+    committee_confidence: float | None = None,
+    committee_disagreement: str | None = None,
+    instrument_type: str | None = None,
     k: int = Query(10, ge=1, le=50),
     service: TradingMemoryService = Depends(get_memory_service_dep),
 ) -> list[SimilarTradeResult]:
@@ -221,14 +215,14 @@ async def get_historical_context(
 
 @router.get("/context", response_model=HistoricalContext)
 async def get_historical_context_get(
-    direction: Optional[str] = None,
-    trend_regime: Optional[str] = None,
-    volatility_bucket: Optional[str] = None,
-    momentum: Optional[float] = None,
-    rsi: Optional[float] = None,
-    committee_confidence: Optional[float] = None,
-    committee_disagreement: Optional[str] = None,
-    instrument_type: Optional[str] = None,
+    direction: str | None = None,
+    trend_regime: str | None = None,
+    volatility_bucket: str | None = None,
+    momentum: float | None = None,
+    rsi: float | None = None,
+    committee_confidence: float | None = None,
+    committee_disagreement: str | None = None,
+    instrument_type: str | None = None,
     k: int = Query(10, ge=1, le=50),
     service: TradingMemoryService = Depends(get_memory_service_dep),
 ) -> HistoricalContext:

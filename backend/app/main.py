@@ -70,6 +70,19 @@ def create_app() -> FastAPI:
             "enable_execution": settings.enable_execution,
             "enable_paper_execution": settings.enable_paper_execution,
             "alpaca_live_trade": settings.alpaca_live_trade,
+            "services": {
+                "backend": "healthy",
+                "alpaca": (
+                    "not_checked"
+                    if settings.alpaca_credentials_configured
+                    else "unavailable"
+                ),
+                "nvidia": (
+                    "not_checked"
+                    if settings.nvidia_credentials_configured
+                    else "not_required"
+                ),
+            },
         }
 
     @app.get("/config")
@@ -80,7 +93,7 @@ def create_app() -> FastAPI:
             "enable_execution": settings.enable_execution,
             "enable_paper_execution": settings.enable_paper_execution,
             "alpaca_live_trade": settings.alpaca_live_trade,
-            "market_data_available": True,
+            "market_data_available": settings.alpaca_credentials_configured,
             "options_data_available": False,  # Will be updated when option gateway is implemented
             "llm_available": settings.nvidia_credentials_configured,
         }

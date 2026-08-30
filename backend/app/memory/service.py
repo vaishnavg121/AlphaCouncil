@@ -6,32 +6,30 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING, Optional
 
+from app.committee.models import CommitteeResult
+from app.execution.models import ExecutionResult
+from app.instruments.models import InstrumentPlan
+from app.memory.analytics import (
+    AnalyticsService,
+    HistoricalContextProvider,
+)
+from app.memory.evaluator import create_post_trade_evaluator
 from app.memory.models import (
-    TradeRecord,
-    TradeOutcome,
-    ThesisOutcomeEvaluation,
+    AgentPerformanceRecord,
     ExecutionQualityEvaluation,
     ExitQualityEvaluation,
-    RiskOutcomeEvaluation,
-    InstrumentOutcomeEvaluation,
-    AgentPerformanceRecord,
     HistoricalContext,
+    InstrumentOutcomeEvaluation,
     PerformanceSummary,
+    RiskOutcomeEvaluation,
     SimilarTradeResult,
+    ThesisOutcomeEvaluation,
+    TradeOutcome,
+    TradeRecord,
 )
 from app.memory.store import TradingMemoryStore, create_trading_memory_store
-from app.memory.evaluator import PostTradeEvaluator, create_post_trade_evaluator
-from app.memory.analytics import (
-    HistoricalContextProvider,
-    AnalyticsService,
-    CalibrationEngine,
-    SimilarityEngine,
-)
 from app.positions.models import ManagedPosition
-from app.committee.models import CommitteeResult
 from app.risk.models import RiskEvaluation
-from app.instruments.models import InstrumentPlan
-from app.execution.models import ExecutionResult
 
 if TYPE_CHECKING:
     from app.positions.models import PositionStore
@@ -42,8 +40,8 @@ class TradingMemoryService:
 
     def __init__(
         self,
-        memory_store: Optional[TradingMemoryStore] = None,
-        position_store: Optional[PositionStore] = None,
+        memory_store: TradingMemoryStore | None = None,
+        position_store: PositionStore | None = None,
         thesis_materiality_threshold_pct: Decimal = Decimal("0.02"),
     ) -> None:
         self.memory_store = memory_store or create_trading_memory_store()
@@ -55,14 +53,14 @@ class TradingMemoryService:
     def evaluate_closed_position(
         self,
         position: ManagedPosition,
-        committee_result: Optional[CommitteeResult] = None,
+        committee_result: CommitteeResult | None = None,
         trade_thesis: Optional = None,
-        risk_evaluation: Optional[RiskEvaluation] = None,
-        instrument_plan: Optional[InstrumentPlan] = None,
-        entry_execution: Optional[ExecutionResult] = None,
-        exit_execution: Optional[ExecutionResult] = None,
-        underlying_entry_price: Optional[Decimal] = None,
-        underlying_exit_price: Optional[Decimal] = None,
+        risk_evaluation: RiskEvaluation | None = None,
+        instrument_plan: InstrumentPlan | None = None,
+        entry_execution: ExecutionResult | None = None,
+        exit_execution: ExecutionResult | None = None,
+        underlying_entry_price: Decimal | None = None,
+        underlying_exit_price: Decimal | None = None,
     ) -> tuple[
         TradeRecord,
         TradeOutcome,
@@ -149,7 +147,7 @@ class TradingMemoryService:
             agent_records,
         )
 
-    def get_trade(self, trade_id: str) -> Optional[TradeRecord]:
+    def get_trade(self, trade_id: str) -> TradeRecord | None:
         """Get trade record by ID."""
         return self.memory_store.get_trade_record(trade_id)
 
@@ -170,7 +168,7 @@ class TradingMemoryService:
         """Get comprehensive performance summary."""
         return self.analytics_service.get_performance_summary()
 
-    def get_committee_calibration(self) -> Optional[CalibrationSummary]:
+    def get_committee_calibration(self) -> CalibrationSummary | None:
         """Get committee calibration analysis."""
         return self.analytics_service._compute_overall_calibration()
 
@@ -206,8 +204,8 @@ class TradingMemoryService:
 
 
 def create_trading_memory_service(
-    db_path: Optional[str] = None,
-    position_store: Optional[PositionStore] = None,
+    db_path: str | None = None,
+    position_store: PositionStore | None = None,
     thesis_materiality_threshold_pct: Decimal = Decimal("0.02"),
 ) -> TradingMemoryService:
     """Factory function to create trading memory service."""

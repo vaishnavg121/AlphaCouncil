@@ -7,24 +7,23 @@ and produces final InstrumentPlan.
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Optional, Literal
 
-from app.committee.models import TradeThesis, CommitteeDecision
+from app.committee.models import TradeThesis
 from app.core.config import Settings
 from app.instruments.models import (
+    EquityInstrumentPlan,
     InstrumentPlan,
     InstrumentType,
-    EquityInstrumentPlan,
     OptionInstrumentPlan,
     OptionRejectionSummary,
 )
 from app.instruments.stock import EquityPlanner
 from app.market.models import MarketState
-from app.options.gateway import OptionDataGateway
 from app.options.filters import OptionFilterConfig, apply_option_filters
+from app.options.gateway import OptionDataGateway
 from app.options.scoring import OptionScorer, OptionScoringConfig, select_best_option
 from app.options.sizing import OptionSizer
-from app.risk.models import RiskEvaluation, RiskDecisionType
+from app.risk.models import RiskDecisionType, RiskEvaluation
 
 
 def _build_filter_config(settings: Settings) -> OptionFilterConfig:
@@ -62,12 +61,12 @@ class InstrumentSelectorService:
 
     def __init__(
         self,
-        settings: Optional[Settings] = None,
-        option_gateway: Optional[OptionDataGateway] = None,
-        equity_planner: Optional[EquityPlanner] = None,
-        option_sizer: Optional[OptionSizer] = None,
-        option_scorer: Optional[OptionScorer] = None,
-        options_enabled: Optional[bool] = None,
+        settings: Settings | None = None,
+        option_gateway: OptionDataGateway | None = None,
+        equity_planner: EquityPlanner | None = None,
+        option_sizer: OptionSizer | None = None,
+        option_scorer: OptionScorer | None = None,
+        options_enabled: bool | None = None,
     ) -> None:
         self._settings = settings or Settings()
         self._option_gateway = option_gateway
@@ -149,7 +148,7 @@ class InstrumentSelectorService:
         trade_thesis: TradeThesis,
         risk_evaluation: RiskEvaluation,
         market_state: MarketState | None,
-    ) -> Optional[EquityInstrumentPlan]:
+    ) -> EquityInstrumentPlan | None:
         """Build equity alternative if eligible."""
         if market_state is None:
             market_state = self._minimal_market_state(trade_thesis.symbol)
@@ -168,6 +167,9 @@ class InstrumentSelectorService:
 
     def _minimal_market_state(self, symbol: str) -> MarketState:
         """Create minimal market state for synthetic testing."""
+        from datetime import UTC, datetime
+        from decimal import Decimal
+
         from app.market.models import (
             DataQuality,
             DataQualityStatus,
@@ -179,8 +181,6 @@ class InstrumentSelectorService:
             Timeframe,
             TradeSnapshot,
         )
-        from datetime import UTC, datetime
-        from decimal import Decimal
 
         now = datetime.now(UTC)
         price = Decimal("100")
@@ -213,7 +213,7 @@ class InstrumentSelectorService:
         trade_thesis: TradeThesis,
         risk_evaluation: RiskEvaluation,
         market_state: MarketState,
-    ) -> tuple[Optional[OptionInstrumentPlan], OptionRejectionSummary]:
+    ) -> tuple[OptionInstrumentPlan | None, OptionRejectionSummary]:
         """Build option alternative if eligible."""
         if not self._options_enabled:
             return None, OptionRejectionSummary()
@@ -322,8 +322,8 @@ class InstrumentSelectorService:
         trade_thesis: TradeThesis,
         risk_evaluation: RiskEvaluation,
         market_state: MarketState,
-        equity_plan: Optional[EquityInstrumentPlan],
-        option_plan: Optional[OptionInstrumentPlan],
+        equity_plan: EquityInstrumentPlan | None,
+        option_plan: OptionInstrumentPlan | None,
         option_rejections: OptionRejectionSummary,
     ) -> InstrumentPlan:
         """Compare equity and option alternatives and select best."""

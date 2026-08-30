@@ -9,13 +9,12 @@ from __future__ import annotations
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Optional, Literal
+from typing import Literal
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.options.models import OptionContract, OptionMarketSnapshot, OptionType
-from app.risk.models import RiskEvaluation
+from app.options.models import OptionType
 
 
 class InstrumentType(StrEnum):
@@ -69,11 +68,11 @@ class OptionInstrumentPlan(BaseModel):
     midpoint: Decimal
     spread: Decimal
     spread_pct: Decimal
-    implied_volatility: Optional[Decimal] = None
-    delta: Optional[Decimal] = None
-    gamma: Optional[Decimal] = None
-    theta: Optional[Decimal] = None
-    vega: Optional[Decimal] = None
+    implied_volatility: Decimal | None = None
+    delta: Decimal | None = None
+    gamma: Decimal | None = None
+    theta: Decimal | None = None
+    vega: Decimal | None = None
     premium_per_contract: Decimal
     multiplier: int
     planned_contracts: int
@@ -95,12 +94,12 @@ class InstrumentPlan(BaseModel):
     symbol: str
     thesis_direction: Literal["BULLISH", "BEARISH"]
     instrument_type: InstrumentType
-    underlying_symbol: Optional[str] = None
-    risk_evaluation_id: Optional[str] = None
+    underlying_symbol: str | None = None
+    risk_evaluation_id: str | None = None
     constitution_version: str = "v1.0.0"
-    equity_plan: Optional[EquityInstrumentPlan] = None
-    option_plan: Optional[OptionInstrumentPlan] = None
-    no_trade_reason: Optional[str] = None
+    equity_plan: EquityInstrumentPlan | None = None
+    option_plan: OptionInstrumentPlan | None = None
+    no_trade_reason: str | None = None
     selection_reasons: tuple[str, ...] = ()
     warnings: tuple[str, ...] = ()
 

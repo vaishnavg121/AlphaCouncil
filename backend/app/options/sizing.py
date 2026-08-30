@@ -6,7 +6,7 @@ Deterministic calculation of contract quantities within M4 risk budget.
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from app.options.models import OptionMarketSnapshot
 from app.risk.models import RiskBudget
@@ -28,7 +28,7 @@ class OptionSizer:
         selection_score: Decimal,
         selection_reasons: tuple[str, ...],
         warnings: tuple[str, ...] = (),
-    ) -> "OptionInstrumentPlan | None":
+    ) -> OptionInstrumentPlan | None:
         """Calculate option instrument plan from snapshot and risk budget."""
         from app.instruments.models import OptionInstrumentPlan
 

@@ -6,7 +6,6 @@ Deterministic stock/ETF position planning within M4 risk ceilings.
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Optional
 
 from app.instruments.models import EquityInstrumentPlan, EquitySide
 from app.market.models import MarketState
@@ -29,7 +28,7 @@ class EquityPlanner:
         market_state: MarketState,
         risk_evaluation: RiskEvaluation,
         thesis_direction: str,  # "BULLISH" or "BEARISH"
-    ) -> Optional[EquityInstrumentPlan]:
+    ) -> EquityInstrumentPlan | None:
         """Calculate equity instrument plan from market state and risk evaluation."""
         risk_budget = risk_evaluation.risk_budget
         if not risk_budget:

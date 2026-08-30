@@ -6,16 +6,15 @@ Deterministic scoring based on liquidity, spread, expiry, moneyness, and Greeks.
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
+from app.options.filters import OptionFilterConfig
 from app.options.models import (
+    OptionDataQualityStatus,
     OptionMarketSnapshot,
     OptionType,
-    OptionDataQualityStatus,
 )
-from app.options.filters import OptionFilterConfig
 from app.risk.models import RiskBudget
 
 
@@ -50,7 +49,7 @@ class OptionScoringConfig(BaseModel):
 class OptionScorer:
     """Deterministic option contract scorer."""
 
-    def __init__(self, config: Optional[OptionScoringConfig] = None) -> None:
+    def __init__(self, config: OptionScoringConfig | None = None) -> None:
         self.config = config or OptionScoringConfig()
 
     def score_contract(
@@ -283,8 +282,8 @@ def select_best_option(
     underlying_price: Decimal,
     risk_budget: RiskBudget,
     filter_config: OptionFilterConfig,
-    scorer: Optional[OptionScorer] = None,
-) -> tuple[Optional[OptionMarketSnapshot], Decimal, tuple[str, ...]]:
+    scorer: OptionScorer | None = None,
+) -> tuple[OptionMarketSnapshot | None, Decimal, tuple[str, ...]]:
     """Select the best option contract from eligible ones."""
     if not eligible:
         return None, Decimal("0"), ("no eligible contracts",)

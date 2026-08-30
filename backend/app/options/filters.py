@@ -5,9 +5,8 @@ Deterministic filters for expiry, moneyness, liquidity, and affordability.
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date
 from decimal import Decimal
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -15,7 +14,6 @@ from app.options.models import (
     OptionContract,
     OptionMarketSnapshot,
     OptionType,
-    OptionDataQualityStatus,
 )
 from app.risk.models import RiskBudget
 
@@ -62,11 +60,11 @@ class OptionFilterConfig(BaseModel):
 class OptionFilters:
     """Deterministic option contract filters."""
 
-    def __init__(self, config: Optional[OptionFilterConfig] = None) -> None:
+    def __init__(self, config: OptionFilterConfig | None = None) -> None:
         self.config = config or OptionFilterConfig()
 
     def filter_by_expiry(
-        self, contracts: list[OptionContract], reference_date: Optional[date] = None
+        self, contracts: list[OptionContract], reference_date: date | None = None
     ) -> tuple[list[OptionContract], int]:
         """Filter contracts by DTE range."""
         if reference_date is None:
@@ -203,7 +201,7 @@ def apply_option_filters(
     snapshots: dict[str, OptionMarketSnapshot],
     underlying_price: Decimal,
     risk_budget: RiskBudget,
-    config: Optional[OptionFilterConfig] = None,
+    config: OptionFilterConfig | None = None,
 ) -> tuple[list[OptionMarketSnapshot], dict[str, int]]:
     """Apply all filters to option chain and return eligible contracts with stats."""
     filters = OptionFilters(config)

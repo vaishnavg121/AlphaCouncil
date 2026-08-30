@@ -4,14 +4,13 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
-from typing import Optional
 
 from alpaca.data.historical import OptionHistoricalDataClient
-from alpaca.data.models import OptionsSnapshot, Quote, Trade
-from alpaca.data.models import OptionsGreeks as AlpacaOptionsGreeks
+from alpaca.data.models import OptionsSnapshot
 from alpaca.data.requests import OptionChainRequest, OptionSnapshotRequest
 from alpaca.trading.client import TradingClient
-from alpaca.trading.models import OptionContract as AlpacaOptionContract, ContractType
+from alpaca.trading.models import ContractType
+from alpaca.trading.models import OptionContract as AlpacaOptionContract
 
 from app.alpaca.client import create_trading_client
 from app.core.config import Settings
@@ -22,11 +21,10 @@ from app.options.models import (
     OptionDataQualityStatus,
     OptionMarketSnapshot,
     OptionQuote,
+    OptionsGreeks,
     OptionTrade,
     OptionType,
-    OptionsGreeks,
 )
-from app.market.models import DataQualityStatus
 
 
 class OptionDataGateway:
@@ -49,11 +47,11 @@ class OptionDataGateway:
     def get_option_chain(
         self,
         underlying_symbol: str,
-        expiration_date_gte: Optional[date] = None,
-        expiration_date_lte: Optional[date] = None,
-        strike_price_gte: Optional[float] = None,
-        strike_price_lte: Optional[float] = None,
-        contract_type: Optional[ContractType] = None,
+        expiration_date_gte: date | None = None,
+        expiration_date_lte: date | None = None,
+        strike_price_gte: float | None = None,
+        strike_price_lte: float | None = None,
+        contract_type: ContractType | None = None,
     ) -> list[OptionContract]:
         """Retrieve option contracts for an underlying symbol."""
         req = OptionChainRequest(
@@ -83,7 +81,7 @@ class OptionDataGateway:
                 snapshots[symbol] = self._normalize_snapshot(symbol, snapshot)
         return snapshots
 
-    def get_option_snapshot(self, symbol: str) -> Optional[OptionMarketSnapshot]:
+    def get_option_snapshot(self, symbol: str) -> OptionMarketSnapshot | None:
         """Retrieve a single option market snapshot."""
         snapshots = self.get_option_snapshots([symbol])
         return snapshots.get(symbol)
@@ -228,9 +226,9 @@ class OptionDataGateway:
     def _assess_data_quality(
         self,
         snapshot: OptionsSnapshot,
-        quote: Optional[OptionQuote],
-        greeks: Optional[OptionsGreeks],
-        iv: Optional[Decimal],
+        quote: OptionQuote | None,
+        greeks: OptionsGreeks | None,
+        iv: Decimal | None,
     ) -> OptionDataQuality:
         """Assess option data quality."""
         warnings = []

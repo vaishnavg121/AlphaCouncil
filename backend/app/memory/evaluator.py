@@ -8,35 +8,33 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Optional
-from uuid import uuid4
 
-from app.memory.models import (
-    TradeRecord,
-    TradeOutcome,
-    TradeOutcomeType,
-    ThesisOutcomeEvaluation,
-    ThesisCorrectness,
-    ExecutionQualityEvaluation,
-    ExitQualityEvaluation,
-    RiskOutcomeEvaluation,
-    InstrumentOutcomeEvaluation,
-    AgentPerformanceRecord,
-    AgentStance,
-    DEFAULT_THESIS_MATERIALITY_THRESHOLD_PCT,
-)
-from app.positions.models import ManagedPosition, ExitReasonCode, PositionStatus
 from app.committee.models import (
-    CommitteeResult,
-    AgentOpinion,
     AgentStance as M3AgentStance,
-    AgentRole,
+)
+from app.committee.models import (
     CommitteeDecision,
+    CommitteeResult,
     TradeThesis,
 )
-from app.risk.models import RiskEvaluation, RiskDecisionType, RiskReasonCode
-from app.instruments.models import InstrumentPlan, InstrumentType
-from app.execution.models import ExecutionResult, ExecutionStatus
+from app.execution.models import ExecutionResult
+from app.instruments.models import InstrumentPlan
+from app.memory.models import (
+    DEFAULT_THESIS_MATERIALITY_THRESHOLD_PCT,
+    AgentPerformanceRecord,
+    AgentStance,
+    ExecutionQualityEvaluation,
+    ExitQualityEvaluation,
+    InstrumentOutcomeEvaluation,
+    RiskOutcomeEvaluation,
+    ThesisCorrectness,
+    ThesisOutcomeEvaluation,
+    TradeOutcome,
+    TradeOutcomeType,
+    TradeRecord,
+)
+from app.positions.models import ExitReasonCode, ManagedPosition, PositionStatus
+from app.risk.models import RiskEvaluation
 
 
 class PostTradeEvaluator:
@@ -51,14 +49,14 @@ class PostTradeEvaluator:
     def evaluate(
         self,
         position: ManagedPosition,
-        committee_result: Optional[CommitteeResult] = None,
-        trade_thesis: Optional[TradeThesis] = None,
-        risk_evaluation: Optional[RiskEvaluation] = None,
-        instrument_plan: Optional[InstrumentPlan] = None,
-        entry_execution: Optional[ExecutionResult] = None,
-        exit_execution: Optional[ExecutionResult] = None,
-        underlying_entry_price: Optional[Decimal] = None,
-        underlying_exit_price: Optional[Decimal] = None,
+        committee_result: CommitteeResult | None = None,
+        trade_thesis: TradeThesis | None = None,
+        risk_evaluation: RiskEvaluation | None = None,
+        instrument_plan: InstrumentPlan | None = None,
+        entry_execution: ExecutionResult | None = None,
+        exit_execution: ExecutionResult | None = None,
+        underlying_entry_price: Decimal | None = None,
+        underlying_exit_price: Decimal | None = None,
     ) -> tuple[
         TradeRecord,
         TradeOutcome,
@@ -133,12 +131,12 @@ class PostTradeEvaluator:
         self,
         trade_id: str,
         position: ManagedPosition,
-        committee_result: Optional[CommitteeResult],
-        trade_thesis: Optional[TradeThesis],
-        risk_evaluation: Optional[RiskEvaluation],
-        instrument_plan: Optional[InstrumentPlan],
-        entry_execution: Optional[ExecutionResult],
-        exit_execution: Optional[ExecutionResult],
+        committee_result: CommitteeResult | None,
+        trade_thesis: TradeThesis | None,
+        risk_evaluation: RiskEvaluation | None,
+        instrument_plan: InstrumentPlan | None,
+        entry_execution: ExecutionResult | None,
+        exit_execution: ExecutionResult | None,
     ) -> TradeRecord:
         """Build the core TradeRecord."""
         # Calculate holding duration
@@ -287,10 +285,10 @@ class PostTradeEvaluator:
         self,
         trade_id: str,
         position: ManagedPosition,
-        trade_thesis: Optional[TradeThesis],
+        trade_thesis: TradeThesis | None,
         trade_record: TradeRecord,
-        underlying_entry_price: Optional[Decimal],
-        underlying_exit_price: Optional[Decimal],
+        underlying_entry_price: Decimal | None,
+        underlying_exit_price: Decimal | None,
     ) -> ThesisOutcomeEvaluation:
         """Evaluate directional thesis correctness (SEPARATE from profitability)."""
         # Use provided underlying prices or fall back to position prices
@@ -348,9 +346,9 @@ class PostTradeEvaluator:
     def _build_execution_quality(
         self,
         trade_id: str,
-        instrument_plan: Optional[InstrumentPlan],
-        entry_execution: Optional[ExecutionResult],
-        exit_execution: Optional[ExecutionResult],
+        instrument_plan: InstrumentPlan | None,
+        entry_execution: ExecutionResult | None,
+        exit_execution: ExecutionResult | None,
     ) -> ExecutionQualityEvaluation:
         """Evaluate execution quality for entry and exit."""
         # Entry quality
@@ -429,7 +427,7 @@ class PostTradeEvaluator:
         self,
         trade_id: str,
         position: ManagedPosition,
-        risk_evaluation: Optional[RiskEvaluation],
+        risk_evaluation: RiskEvaluation | None,
         trade_record: TradeRecord,
     ) -> RiskOutcomeEvaluation:
         """Evaluate risk outcome."""
@@ -481,7 +479,7 @@ class PostTradeEvaluator:
     def _build_instrument_outcome(
         self,
         trade_id: str,
-        instrument_plan: Optional[InstrumentPlan],
+        instrument_plan: InstrumentPlan | None,
         trade_record: TradeRecord,
     ) -> InstrumentOutcomeEvaluation:
         """Evaluate instrument outcome."""
@@ -514,7 +512,7 @@ class PostTradeEvaluator:
     def _build_agent_performance(
         self,
         trade_id: str,
-        committee_result: Optional[CommitteeResult],
+        committee_result: CommitteeResult | None,
         trade_record: TradeRecord,
         thesis_eval: ThesisOutcomeEvaluation,
     ) -> list[AgentPerformanceRecord]:

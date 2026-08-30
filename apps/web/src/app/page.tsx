@@ -16,6 +16,7 @@ import {
   type CouncilRun,
   type CouncilRunEvent,
   type CouncilRunStatus,
+  type AgentOpinionSnapshot,
 } from "@/lib/api";
 import {
   Card,
@@ -67,6 +68,12 @@ const AGENT_COLORS: Record<string, string> = {
 
 type DashboardStatus = "LOADING" | "SUCCESS" | "DEGRADED" | "ERROR";
 
+function displayLabel(value?: string | null): string {
+  if (!value) return "Not available";
+  const words = value.toLowerCase().replaceAll("_", " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 function safeDashboardError(error: unknown): string {
   return error instanceof Error ? error.message : "Request failed";
 }
@@ -74,7 +81,7 @@ function safeDashboardError(error: unknown): string {
 function StatusBadge({ status }: { status: string }) {
   return (
     <Badge className={STATUS_COLORS[status] || "bg-gray-100 text-gray-800"} variant="outline">
-      {status}
+      {displayLabel(status)}
     </Badge>
   );
 }
@@ -82,7 +89,7 @@ function StatusBadge({ status }: { status: string }) {
 function RunStatusBadge({ status }: { status: CouncilRunStatus }) {
   return (
     <Badge className={RUN_STATUS_COLORS[status] || "bg-gray-100 text-gray-800"} variant="outline">
-      {status}
+      {displayLabel(status)}
     </Badge>
   );
 }
@@ -121,6 +128,11 @@ function formatConfidence(value?: number): string {
   return `${(value * 100).toFixed(0)}%`;
 }
 
+function formatNumber(value?: number, digits = 1): string {
+  if (value === undefined || value === null || !Number.isFinite(Number(value))) return "—";
+  return Number(value).toFixed(digits);
+}
+
 function formatDuration(seconds?: number): string {
   if (!seconds) return "—";
   const hours = Math.floor(seconds / 3600);
@@ -150,22 +162,50 @@ export default function Dashboard() {
   const [runEvents, setRunEvents] = useState<CouncilRunEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const [selectedTab, setSelectedTab] = useState("overview"); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [councilStatus, setCouncilStatus] = useState<SystemHealth | null>(null); // eslint-disable-line @typescript-eslint/no-unused-vars
   const [dashboardStatus, setDashboardStatus] = useState<DashboardStatus>("LOADING");
   const [dashboardIssues, setDashboardIssues] = useState<string[]>([]);
   const mountedRef = useRef(true);
 
+  const applyCanonicalRun = (run: CouncilRun) => {
+    setCouncilRun(run);
+    setActiveRunId(run.run_id);
+    const candidateIds = run.candidate_analyses.map((candidate) => candidate.candidate_id);
+    let storedCandidateId: string | null = null;
+    try {
+      storedCandidateId = window.localStorage.getItem("alphacouncil.selectedCandidateId");
+    } catch {
+      storedCandidateId = null;
+    }
+    setSelectedCandidateId((current) => {
+      if (current && candidateIds.includes(current)) return current;
+      if (storedCandidateId && candidateIds.includes(storedCandidateId)) return storedCandidateId;
+      return candidateIds[0] || null;
+    });
+  };
+
+  const selectCandidate = (candidateId: string) => {
+    setSelectedCandidateId(candidateId);
+    try {
+      window.localStorage.setItem("alphacouncil.selectedCandidateId", candidateId);
+    } catch {
+      // Selection remains valid for this session when storage is unavailable.
+    }
+  };
+
   const loadDashboard = async () => {
     if (!mountedRef.current) return;
     try {
-      const [healthResult, configResult, tradesResult, performanceResult, contextResult, councilResult] = await Promise.allSettled([
+      const [healthResult, configResult, tradesResult, performanceResult, contextResult, councilResult, currentRunResult] = await Promise.allSettled([
         systemApi.health(),
         systemApi.config(),
         tradesApi.list(20),
         performanceApi.getSummary(),
         analyticsApi.getHistoricalContext({ direction: "LONG", instrument_type: "STOCK" }),
         councilApi.getStatus(),
+        councilApi.getCurrentRun(),
       ]);
       if (!mountedRef.current) return;
       const issues: string[] = [];
@@ -195,6 +235,12 @@ export default function Dashboard() {
       if (councilResult.status === "fulfilled") setCouncilStatus(councilResult.value);
       else issues.push(`Council status: ${safeDashboardError(councilResult.reason)}`);
 
+      if (currentRunResult.status === "fulfilled" && currentRunResult.value) {
+        applyCanonicalRun(currentRunResult.value);
+      } else if (currentRunResult.status === "rejected") {
+        issues.push(`Current council run: ${safeDashboardError(currentRunResult.reason)}`);
+      }
+
       setDashboardIssues(issues);
       setDashboardStatus(
         criticalFailures === 2 ? "ERROR" : issues.length > 0 ? "DEGRADED" : "SUCCESS",
@@ -218,6 +264,8 @@ export default function Dashboard() {
       mountedRef.current = false;
       clearInterval(interval);
     };
+    // The dashboard owns one polling lifecycle; request helpers intentionally use current state setters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const runCouncil = async (demoMode = true) => {
@@ -229,18 +277,20 @@ export default function Dashboard() {
       });
       setActiveRunId(response.run_id);
       setCouncilRun(null);
+      setSelectedCandidateId(null);
       setRunEvents([]);
       pollRun(response.run_id);
     } catch (e) {
       console.error("Failed to start council run:", e);
-      alert("Failed to start council run");
+      setDashboardIssues([`Council run: ${safeDashboardError(e)}`]);
+      setDashboardStatus("DEGRADED");
     }
   };
 
   const pollRun = async (runId: string) => {
     try {
       const run = await councilApi.getRun(runId);
-      setCouncilRun(run);
+      applyCanonicalRun(run);
       const events = await councilApi.getEvents(runId);
       setRunEvents(events);
       if (run.status !== "COMPLETE" && run.status !== "PARTIAL" && run.status !== "FAILED") {
@@ -248,6 +298,8 @@ export default function Dashboard() {
       }
     } catch (e) {
       console.error("Failed to poll run:", e);
+      setDashboardIssues([`Council run status: ${safeDashboardError(e)}`]);
+      setDashboardStatus("DEGRADED");
     }
   };
 
@@ -255,6 +307,11 @@ export default function Dashboard() {
     activeRunId &&
       (!councilRun || !["COMPLETE", "PARTIAL", "FAILED"].includes(councilRun.status)),
   );
+  const candidates = councilRun?.candidate_analyses ?? [];
+  const selectedCandidate =
+    candidates.find((candidate) => candidate.candidate_id === selectedCandidateId) ??
+    candidates[0] ??
+    null;
 
   if (loading) {
     return (
@@ -281,11 +338,10 @@ export default function Dashboard() {
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2 text-sm">
               <span className="px-2 py-1 rounded-full bg-green-100 text-green-800 font-medium">
-                PAPER
+                Trading Mode: {config?.trading_mode?.toUpperCase() || "PAPER"}
               </span>
-              <span className="text-gray-500">|</span>
               <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-800 font-medium">
-                {health?.trading_mode?.toUpperCase() || "PAPER"}
+                Execution: {config?.enable_paper_execution ? "PAPER ENABLED" : "DRY RUN"}
               </span>
             </div>
             <Button
@@ -319,6 +375,20 @@ export default function Dashboard() {
           )}
         </div>
 
+        <div
+          className="mb-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-5"
+          data-testid="system-dimensions"
+        >
+          <SystemDimension label="Backend" value={health?.services?.backend || health?.status} />
+          <SystemDimension label="Alpaca" value={health?.services?.alpaca || "not_checked"} />
+          <SystemDimension label="NVIDIA" value={health?.services?.nvidia || "not_required"} />
+          <SystemDimension label="Trading Mode" value={config?.trading_mode || "paper"} />
+          <SystemDimension
+            label="Execution"
+            value={config?.enable_paper_execution ? "paper_enabled" : "disabled"}
+          />
+        </div>
+
         {/* System Status Bar */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
           <MetricCard
@@ -335,7 +405,7 @@ export default function Dashboard() {
           />
           <MetricCard
             title="Managed Positions"
-value={trades.filter(t => t.status === "OPEN").length.toString()}
+            value={trades.filter(t => t.status === "OPEN").length.toString()}
             icon={<Activity className="w-5 h-5 text-blue-600" />}
             subtitle="Active"
           />
@@ -352,10 +422,10 @@ value={trades.filter(t => t.status === "OPEN").length.toString()}
             subtitle={formatPercent(0) + " win rate"}
           />
           <MetricCard
-            title="System Health"
+            title="Backend"
             value={health?.status === "healthy" ? "Healthy" : "Degraded"}
             icon={<CheckCircle className="w-5 h-5 text-green-600" />}
-            subtitle={`Alpaca: ${health?.services?.discovery?.toUpperCase() || "N/A"}`}
+            subtitle={`Alpaca: ${displayLabel(health?.services?.alpaca)}`}
           />
         </div>
 
@@ -447,7 +517,7 @@ value={trades.filter(t => t.status === "OPEN").length.toString()}
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <Zap className="w-5 h-5" />
-                    Active Council Run
+                    Canonical Council Run
                   </CardTitle>
                   <div className="flex items-center gap-2">
                     {councilRun.demo_mode && <Badge variant="outline">SYNTHETIC DEMO</Badge>}
@@ -473,6 +543,12 @@ value={trades.filter(t => t.status === "OPEN").length.toString()}
                           {(councilRun.total_runtime_ms / 1000).toFixed(1)}s
                         </span>
                       </div>
+                      {selectedCandidate && (
+                        <div>
+                          <span className="text-gray-500">Selected:</span>
+                          <span className="ml-2 font-medium">{selectedCandidate.symbol}</span>
+                        </div>
+                      )}
                     </div>
                     {runEvents.length > 0 && (
                       <div className="max-h-64 overflow-y-auto">
@@ -494,11 +570,14 @@ value={trades.filter(t => t.status === "OPEN").length.toString()}
           <TabsContent value="opportunities" className="space-y-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="w-5 h-5" />
-                  Opportunity Discovery
-                </CardTitle>
-                <CardDescription>M2 Candidate Set</CardDescription>
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Target className="w-5 h-5" />
+                    Opportunity Discovery
+                  </CardTitle>
+                  <CardDescription>M2 candidates from the canonical CouncilRun</CardDescription>
+                </div>
+                {councilRun?.demo_mode && <Badge variant="outline">SYNTHETIC DEMO</Badge>}
               </CardHeader>
               <CardContent>
                 <div className="overflow-x-auto">
@@ -517,23 +596,41 @@ value={trades.filter(t => t.status === "OPEN").length.toString()}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {trades.length > 0 ? (
-                        trades.map((trade) => (
-                          <TableRow key={trade.trade_id}>
-                            <TableCell className="font-mono font-medium">{trade.symbol}</TableCell>
-                            <TableCell className="font-mono">{trade.instrument_selection_score?.toFixed(1) || "—"}</TableCell>
+                      {candidates.length > 0 ? (
+                        candidates.map((candidate) => (
+                          <TableRow
+                            key={candidate.candidate_id}
+                            className={
+                              candidate.candidate_id === selectedCandidate?.candidate_id
+                                ? "bg-blue-50"
+                                : undefined
+                            }
+                          >
+                            <TableCell className="font-mono font-medium">
+                              <button
+                                type="button"
+                                className="text-blue-700 hover:underline"
+                                onClick={() => selectCandidate(candidate.candidate_id)}
+                                aria-pressed={candidate.candidate_id === selectedCandidate?.candidate_id}
+                              >
+                                {candidate.symbol}
+                              </button>
+                            </TableCell>
+                            <TableCell className="font-mono">
+                              {formatNumber(candidate.opportunity.opportunity_score.total)}
+                            </TableCell>
                             <TableCell>
-                              <Badge variant={trade.direction === "LONG" ? "default" : "secondary"}>
-                                {trade.direction}
+                              <Badge variant={candidate.direction === "BULLISH" ? "default" : "secondary"}>
+                                {displayLabel(candidate.direction)}
                               </Badge>
                             </TableCell>
-                            <TableCell>—</TableCell>
-                            <TableCell>—</TableCell>
-                            <TableCell>—</TableCell>
-                            <TableCell>—</TableCell>
-                            <TableCell>—</TableCell>
+                            <TableCell>{formatNumber(candidate.opportunity.trend)}</TableCell>
+                            <TableCell>{formatNumber(candidate.opportunity.momentum)}</TableCell>
+                            <TableCell>{formatNumber(candidate.opportunity.rsi)}</TableCell>
+                            <TableCell>{formatNumber(candidate.opportunity.volatility)}</TableCell>
+                            <TableCell>{formatNumber(candidate.opportunity.liquidity)}</TableCell>
                             <TableCell>
-                              <StatusBadge status={trade.status || "UNKNOWN"} />
+                              <StatusBadge status={candidate.opportunity.status || "UNKNOWN"} />
                             </TableCell>
                           </TableRow>
                         ))
@@ -551,21 +648,46 @@ value={trades.filter(t => t.status === "OPEN").length.toString()}
             </Card>
 
             {/* Opportunity Detail */}
-            {trades.length > 0 && (
+            {selectedCandidate && (
               <Card>
                 <CardHeader>
-                  <CardTitle>Opportunity Pipeline</CardTitle>
-                  <CardDescription>Click a row above to see full pipeline (Demo)</CardDescription>
+                  <CardTitle data-testid="selected-candidate">
+                    {selectedCandidate.symbol} provenance pipeline
+                  </CardTitle>
+                  <CardDescription>
+                    Candidate ID: {selectedCandidate.candidate_id}
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
                     <PipelineStage title="M1 Market" status="complete" icon={<Activity />} />
                     <PipelineStage title="M2 Discovery" status="complete" icon={<Target />} />
-                    <PipelineStage title="M3 Committee" status="complete" icon={<Brain />} />
-                    <PipelineStage title="M4 Risk" status="complete" icon={<Shield />} />
-                    <PipelineStage title="M5 Instrument" status="complete" icon={<BarChart3 />} />
-                    <PipelineStage title="M6 Execution" status="complete" icon={<Zap />} />
+                    <PipelineStage
+                      title="M3 Committee"
+                      status={selectedCandidate.committee_result ? "complete" : "pending"}
+                      icon={<Brain />}
+                    />
+                    <PipelineStage
+                      title="M4 Risk"
+                      status={selectedCandidate.risk_evaluation ? "complete" : "pending"}
+                      icon={<Shield />}
+                    />
+                    <PipelineStage
+                      title="M5 Instrument"
+                      status={selectedCandidate.instrument_plan ? "complete" : "stopped"}
+                      icon={<BarChart3 />}
+                    />
+                    <PipelineStage
+                      title="M6 Plan"
+                      status={selectedCandidate.execution_plan ? "complete" : "stopped"}
+                      icon={<Zap />}
+                    />
                   </div>
+                  {selectedCandidate.stop_reason_codes.length > 0 && (
+                    <p className="mt-4 text-sm text-amber-700">
+                      Pipeline stopped: {selectedCandidate.stop_reason_codes.map(displayLabel).join(", ")}
+                    </p>
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -575,18 +697,68 @@ value={trades.filter(t => t.status === "OPEN").length.toString()}
           <TabsContent value="committee" className="space-y-4">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Brain className="w-5 h-5" />
-                  Adversarial Committee
-                </CardTitle>
-                <CardDescription>Four agents challenge and debate each candidate</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                  {["QUANT", "BULL", "BEAR", "REGIME"].map((agent) => (
-                    <AgentCard key={agent} agent={agent} />
-                  ))}
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <CardTitle className="flex items-center gap-2">
+                      <Brain className="w-5 h-5" />
+                      Current Council Decision
+                    </CardTitle>
+                    <CardDescription>
+                      {selectedCandidate
+                        ? `${selectedCandidate.symbol} · ${selectedCandidate.candidate_id}`
+                        : "Run the council to produce a candidate decision."}
+                    </CardDescription>
+                  </div>
+                  {councilRun?.demo_mode && <Badge variant="outline">SYNTHETIC DEMO</Badge>}
                 </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {selectedCandidate?.committee_result ? (
+                  <>
+                    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
+                      <StatBox label="Candidate" value={selectedCandidate.symbol} />
+                      <StatBox
+                        label="Opportunity Score"
+                        value={formatNumber(selectedCandidate.opportunity_score)}
+                      />
+                      <StatBox
+                        label="Decision"
+                        value={displayLabel(selectedCandidate.committee_result.decision.decision)}
+                      />
+                      <StatBox
+                        label="Confidence"
+                        value={formatConfidence(selectedCandidate.committee_result.decision.committee_confidence)}
+                      />
+                      <StatBox
+                        label="Disagreement"
+                        value={displayLabel(selectedCandidate.committee_result.decision.final_disagreement)}
+                      />
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                      {selectedCandidate.committee_result.final_opinions.map((opinion) => (
+                        <AgentCard key={opinion.agent_role} opinion={opinion} />
+                      ))}
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-3 text-sm">
+                      <StatRow
+                        label="Participating agents"
+                        value={selectedCandidate.committee_result.decision.participating_agents.length}
+                      />
+                      <StatRow
+                        label="Abstentions"
+                        value={selectedCandidate.committee_result.decision.abstained_agents.length}
+                      />
+                      <StatRow
+                        label="Reason codes"
+                        value={selectedCandidate.committee_result.decision.decision_reasons
+                          .map(displayLabel)
+                          .join(", ")}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <p className="text-gray-500">No current candidate committee result.</p>
+                )}
               </CardContent>
             </Card>
 
@@ -596,7 +768,7 @@ value={trades.filter(t => t.status === "OPEN").length.toString()}
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <AlertTriangle className="w-5 h-5" />
-                    Disagreement Analytics
+                    Historical Committee Analytics
                   </CardTitle>
                   <CardDescription>Outcomes by disagreement level</CardDescription>
                 </CardHeader>
@@ -639,7 +811,7 @@ value={trades.filter(t => t.status === "OPEN").length.toString()}
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <BarChart3 className="w-5 h-5" />
-                    Confidence Calibration
+                    Historical Confidence Calibration
                   </CardTitle>
                   <CardDescription>Brier: {performance.calibration.brier_score?.toFixed(4) || "—"} | ECE: {performance.calibration.ece?.toFixed(4) || "—"}</CardDescription>
                 </CardHeader>
@@ -676,7 +848,7 @@ value={trades.filter(t => t.status === "OPEN").length.toString()}
                       <h4 className="font-medium mb-2">Overall Assessment</h4>
                       <div className="p-4 bg-gray-50 rounded-lg">
                         <Badge variant={performance.calibration.overall_insight === "OVERCONFIDENT" ? "destructive" : performance.calibration.overall_insight === "WELL_CALIBRATED" ? "default" : "secondary"}>
-                          {performance.calibration.overall_insight}
+                          {displayLabel(performance.calibration.overall_insight)}
                         </Badge>
                         <p className="text-sm text-gray-600 mt-2">
                           {performance.calibration.total_samples} total samples • Min {performance.calibration.min_sample_size} per bucket
@@ -699,6 +871,112 @@ value={trades.filter(t => t.status === "OPEN").length.toString()}
           <TabsContent value="risk" className="space-y-4">
             <Card>
               <CardHeader>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <CardTitle>Current Candidate Risk Decision</CardTitle>
+                    <CardDescription>
+                      {selectedCandidate
+                        ? `${selectedCandidate.symbol} · M4 deterministic output`
+                        : "No candidate selected"}
+                    </CardDescription>
+                  </div>
+                  {selectedCandidate?.risk_evaluation && (
+                    <StatusBadge status={selectedCandidate.risk_evaluation.decision} />
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {selectedCandidate?.risk_evaluation ? (
+                  <>
+                    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                      <StatBox
+                        label="Committee Proposal"
+                        value={displayLabel(selectedCandidate.committee_decision)}
+                      />
+                      <StatBox
+                        label="Committee Confidence"
+                        value={formatConfidence(selectedCandidate.committee_confidence)}
+                      />
+                      <StatBox
+                        label="Base Risk Budget"
+                        value={formatCurrency(
+                          selectedCandidate.risk_evaluation.risk_budget?.base_risk_budget,
+                        )}
+                      />
+                      <StatBox
+                        label="Final Risk Budget"
+                        value={formatCurrency(
+                          selectedCandidate.risk_evaluation.risk_budget?.adjusted_risk_budget,
+                        )}
+                      />
+                      <StatBox
+                        label="Max Position Notional"
+                        value={formatCurrency(
+                          selectedCandidate.risk_evaluation.risk_budget?.max_position_notional,
+                        )}
+                      />
+                      <StatBox
+                        label="Stop Reference"
+                        value={formatCurrency(
+                          selectedCandidate.risk_evaluation.risk_budget?.atr_stop_distance,
+                        )}
+                      />
+                      <StatBox
+                        label="Reason"
+                        value={displayLabel(selectedCandidate.risk_evaluation.reason_code)}
+                      />
+                      <StatBox
+                        label="M4 Version"
+                        value={selectedCandidate.risk_evaluation.constitution_version}
+                      />
+                    </div>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div>
+                        <h4 className="font-medium mb-2">Hard Gates</h4>
+                        <div className="space-y-2">
+                          {selectedCandidate.risk_evaluation.checks
+                            .filter((check) => check.rule_type === "HARD_GATE")
+                            .map((check) => (
+                              <RiskRow
+                                key={check.rule_name}
+                                label={check.rule_name}
+                                value={check.passed ? "PASS" : displayLabel(check.reason_code)}
+                                status={check.passed ? "ok" : "destructive"}
+                              />
+                            ))}
+                        </div>
+                      </div>
+                      <div>
+                        <h4 className="font-medium mb-2">Soft Reductions</h4>
+                        <div className="space-y-2">
+                          {selectedCandidate.risk_evaluation.checks
+                            .filter((check) => check.rule_type === "SOFT_REDUCTION")
+                            .map((check) => (
+                              <RiskRow
+                                key={check.rule_name}
+                                label={check.rule_name}
+                                value={
+                                  check.passed
+                                    ? "NONE"
+                                    : `-${((1 - Number(check.reduction_factor ?? 1)) * 100).toFixed(0)}%`
+                                }
+                                status={check.passed ? "ok" : "warning"}
+                              />
+                            ))}
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <div className="rounded border border-amber-200 bg-amber-50 p-4 text-amber-800">
+                    No M4 evaluation is available. {selectedCandidate?.stop_reason_codes.map(displayLabel).join(", ")}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Shield className="w-5 h-5" />
                   Risk Constitution
@@ -711,23 +989,23 @@ value={trades.filter(t => t.status === "OPEN").length.toString()}
                   <strong>M4 is the final risk authority.</strong> Historical memory provides context but cannot override current risk rules.
                 </div>
                 <div className="space-y-3">
-                  <RiskRow label="Kill Switch" value="INACTIVE" status="ok" />
-                  <RiskRow label="Daily Loss Limit" value="OK" status="ok" />
-                  <RiskRow label="Max Drawdown" value="OK" status="ok" />
-                  <RiskRow label="Position Concentration" value="OK" status="ok" />
-                  <RiskRow label="Gross Exposure" value="OK" status="ok" />
-                  <RiskRow label="Net Exposure" value="OK" status="ok" />
-                  <RiskRow label="Max Positions" value="OK" status="ok" />
-                  <RiskRow label="Correlation Redundancy" value="OK" status="ok" />
+                  <RiskRow label="Kill Switch" value="ENFORCED" status="ok" />
+                  <RiskRow label="Daily Loss Limit" value="ENFORCED" status="ok" />
+                  <RiskRow label="Max Drawdown" value="ENFORCED" status="ok" />
+                  <RiskRow label="Position Concentration" value="ENFORCED" status="ok" />
+                  <RiskRow label="Gross Exposure" value="ENFORCED" status="ok" />
+                  <RiskRow label="Net Exposure" value="ENFORCED" status="ok" />
+                  <RiskRow label="Max Positions" value="ENFORCED" status="ok" />
+                  <RiskRow label="Correlation Redundancy" value="ENFORCED" status="ok" />
                 </div>
                 <Separator />
                 <h4 className="font-medium mb-2">Soft Reductions</h4>
                 <div className="space-y-2">
-                  <RiskRow label="Volatility Reduction" value="Applied" status="warning" />
-                  <RiskRow label="Liquidity Reduction" value="OK" status="ok" />
-                  <RiskRow label="Confidence Reduction" value="OK" status="ok" />
-                  <RiskRow label="Symbol Concentration" value="OK" status="ok" />
-                  <RiskRow label="Correlation Reduction" value="OK" status="ok" />
+                  <RiskRow label="Volatility Reduction" value="AVAILABLE" status="ok" />
+                  <RiskRow label="Liquidity Reduction" value="AVAILABLE" status="ok" />
+                  <RiskRow label="Confidence Reduction" value="AVAILABLE" status="ok" />
+                  <RiskRow label="Symbol Concentration" value="AVAILABLE" status="ok" />
+                  <RiskRow label="Correlation Reduction" value="AVAILABLE" status="ok" />
                 </div>
               </CardContent>
             </Card>
@@ -760,6 +1038,119 @@ value={trades.filter(t => t.status === "OPEN").length.toString()}
 
           {/* EXECUTION TAB */}
           <TabsContent value="execution" className="space-y-4">
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <CardTitle>Current Instrument / Execution Plan</CardTitle>
+                    <CardDescription>
+                      {selectedCandidate
+                        ? `${selectedCandidate.symbol} · same canonical candidate selected across tabs`
+                        : "No candidate selected"}
+                    </CardDescription>
+                  </div>
+                  <div className="flex gap-2">
+                    {councilRun?.demo_mode && <Badge variant="outline">SYNTHETIC DEMO</Badge>}
+                    <Badge variant="secondary">PLAN ONLY</Badge>
+                    <Badge variant="destructive">NOT SUBMITTED</Badge>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {selectedCandidate?.instrument_plan ? (
+                  <>
+                    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                      <StatBox
+                        label="M5 Outcome"
+                        value={displayLabel(selectedCandidate.instrument_plan.instrument_type)}
+                      />
+                      <StatBox
+                        label="Direction"
+                        value={displayLabel(selectedCandidate.instrument_plan.thesis_direction)}
+                      />
+                      <StatBox
+                        label="Plan ID"
+                        value={<span className="text-xs">{selectedCandidate.instrument_plan.plan_id}</span>}
+                      />
+                      <StatBox
+                        label="Selection Reason"
+                        value={displayLabel(
+                          selectedCandidate.instrument_plan.no_trade_reason ||
+                            selectedCandidate.instrument_plan.selection_reasons[0],
+                        )}
+                      />
+                    </div>
+                    {selectedCandidate.instrument_plan.equity_plan && (
+                      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                        <StatRow
+                          label="Side"
+                          value={displayLabel(selectedCandidate.instrument_plan.equity_plan.side)}
+                        />
+                        <StatRow
+                          label="Reference price"
+                          value={formatCurrency(
+                            selectedCandidate.instrument_plan.equity_plan.reference_price,
+                          )}
+                        />
+                        <StatRow
+                          label="Quantity ceiling"
+                          value={formatNumber(
+                            selectedCandidate.instrument_plan.equity_plan.estimated_quantity,
+                            4,
+                          )}
+                        />
+                        <StatRow
+                          label="Notional ceiling"
+                          value={formatCurrency(
+                            selectedCandidate.instrument_plan.equity_plan.max_notional,
+                          )}
+                        />
+                      </div>
+                    )}
+                    {selectedCandidate.instrument_plan.option_plan && (
+                      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                        <StatRow label="Option" value={selectedCandidate.instrument_plan.option_plan.contract_symbol} />
+                        <StatRow label="Type" value={displayLabel(selectedCandidate.instrument_plan.option_plan.option_type)} />
+                        <StatRow label="Strike" value={formatCurrency(selectedCandidate.instrument_plan.option_plan.strike_price)} />
+                        <StatRow label="Expiry" value={selectedCandidate.instrument_plan.option_plan.expiration_date} />
+                        <StatRow label="DTE" value={selectedCandidate.instrument_plan.option_plan.days_to_expiry} />
+                        <StatRow label="Contracts" value={selectedCandidate.instrument_plan.option_plan.planned_contracts} />
+                        <StatRow label="Max loss" value={formatCurrency(selectedCandidate.instrument_plan.option_plan.maximum_loss)} />
+                        <StatRow label="Spread" value={formatPercent(selectedCandidate.instrument_plan.option_plan.spread_pct)} />
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="rounded border border-amber-200 bg-amber-50 p-4 text-amber-800">
+                    No M5 instrument plan. Reason: {selectedCandidate?.stop_reason_codes.map(displayLabel).join(", ") || "No council run"}
+                  </div>
+                )}
+
+                {selectedCandidate?.execution_plan ? (
+                  <div className="rounded-lg border border-blue-200 bg-blue-50 p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <strong>M6 Dry-run Execution Plan</strong>
+                      <StatusBadge status={selectedCandidate.execution_status} />
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                      <StatRow label="Plan ID" value={<span className="text-xs">{selectedCandidate.execution_plan.execution_plan_id}</span>} />
+                      <StatRow label="Side" value={displayLabel(selectedCandidate.execution_plan.side)} />
+                      <StatRow label="Quantity" value={formatNumber(selectedCandidate.execution_plan.quantity, 4)} />
+                      <StatRow label="Order type" value={displayLabel(selectedCandidate.execution_plan.order_type)} />
+                      <StatRow label="Limit price" value={formatCurrency(selectedCandidate.execution_plan.limit_price)} />
+                      <StatRow label="TTL" value={`${Math.max(0, Math.round((new Date(selectedCandidate.execution_plan.expires_at).getTime() - new Date(selectedCandidate.execution_plan.created_at).getTime()) / 1000))}s`} />
+                      <StatRow label="Authorization" value={selectedCandidate.execution_authorized ? "Authorized" : "Denied — execution disabled"} />
+                      <StatRow label="Submission" value="Not submitted" />
+                    </div>
+                  </div>
+                ) : selectedCandidate ? (
+                  <div className="rounded border border-gray-200 bg-gray-50 p-4 text-gray-700">
+                    <strong>No execution plan.</strong> Reason: {selectedCandidate.stop_reason_codes.concat(selectedCandidate.execution_reason_codes).map(displayLabel).join(", ") || "Upstream stage did not produce a plan"}
+                  </div>
+                ) : null}
+              </CardContent>
+            </Card>
+
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -830,7 +1221,9 @@ value={trades.filter(t => t.status === "OPEN").length.toString()}
                   <TableBody>
                     <TableRow>
                       <TableCell colSpan={8} className="text-center text-gray-500 py-8">
-                        No executions yet. Run a council to generate execution plans.
+                        {councilRun
+                          ? "No orders submitted. Demo Mode creates plans but execution remains disabled."
+                          : "No executions yet. Run the council to create a plan-only preview."}
                       </TableCell>
                     </TableRow>
                   </TableBody>
@@ -894,7 +1287,7 @@ value={trades.filter(t => t.status === "OPEN").length.toString()}
                     ) : (
                       <TableRow>
                         <TableCell colSpan={12} className="text-center text-gray-500 py-8">
-                          No active managed positions
+                          No managed positions. Demo Mode creates plans but does not submit orders.
                         </TableCell>
                       </TableRow>
                     )}
@@ -959,7 +1352,9 @@ value={trades.filter(t => t.status === "OPEN").length.toString()}
                     )}
                   </div>
                 ) : (
-                  <p className="text-gray-500">No historical trades yet. Run councils to build memory.</p>
+                  <p className="text-gray-500">
+                    Trading memory is populated only after completed trade lifecycles. Synthetic Demo Mode data is not added to paper-trading history.
+                  </p>
                 )}
               </CardContent>
             </Card>
@@ -1075,6 +1470,20 @@ function MetricCard({ title, value, icon, subtitle }: { title: string; value: st
   );
 }
 
+function SystemDimension({ label, value }: { label: string; value?: string }) {
+  const safeValue = value || "unknown";
+  const positive = ["healthy", "paper", "not_required"].includes(safeValue.toLowerCase());
+  const neutral = ["disabled", "not_checked", "unavailable"].includes(safeValue.toLowerCase());
+  return (
+    <div className="flex items-center justify-between rounded-lg border bg-white px-3 py-2 text-sm">
+      <span className="text-gray-500">{label}</span>
+      <Badge variant={positive ? "default" : neutral ? "outline" : "secondary"}>
+        {displayLabel(safeValue)}
+      </Badge>
+    </div>
+  );
+}
+
 function StatRow({ label, value, change }: { label: string; value: React.ReactNode; change?: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between py-1">
@@ -1118,40 +1527,45 @@ function StatBox({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-function PipelineStage({ title, status, icon }: { title: string; status: "pending" | "complete"; icon: React.ReactNode }) {
+function PipelineStage({
+  title,
+  status,
+  icon,
+}: {
+  title: string;
+  status: "pending" | "complete" | "stopped";
+  icon: React.ReactNode;
+}) {
+  const complete = status === "complete";
+  const stopped = status === "stopped";
   return (
     <div className="flex flex-col items-center gap-2 p-4 bg-gray-50 rounded-lg">
-      <div className={`p-2 rounded-full ${status === "complete" ? "bg-green-100 text-green-600" : "bg-gray-100 text-gray-400"}`}>
+      <div className={`p-2 rounded-full ${complete ? "bg-green-100 text-green-600" : stopped ? "bg-amber-100 text-amber-600" : "bg-gray-100 text-gray-400"}`}>
         {icon}
       </div>
       <p className="text-xs font-medium text-center">{title}</p>
-      <Badge variant={status === "complete" ? "default" : "outline"} className="text-xs">
-        {status.toUpperCase()}
+      <Badge variant={complete ? "default" : "outline"} className="text-xs">
+        {displayLabel(status)}
       </Badge>
     </div>
   );
 }
 
-function AgentCard({ agent }: { agent: string }) {
-  const stances: Record<string, string> = {
-    QUANT: "LONG",
-    BULL: "LONG",
-    BEAR: "NEUTRAL",
-    REGIME: "LONG",
-  };
-  const confidences: Record<string, number> = {
-    QUANT: 0.80,
-    BULL: 0.85,
-    BEAR: 0.40,
-    REGIME: 0.70,
-  };
+function AgentCard({ opinion }: { opinion: AgentOpinionSnapshot }) {
+  const abstained = opinion.stance === "ABSTAIN";
   return (
-    <Card className="text-center">
-      <CardContent className="py-6">
-        <AgentBadge agent={agent} className="mb-2" />
-        <p className="text-2xl font-bold text-gray-900">{stances[agent] || "—"}</p>
-        <p className="text-sm text-gray-500">Confidence: {(confidences[agent] * 100).toFixed(0)}%</p>
-        <p className="text-xs text-gray-400 mt-2">{agent}</p>
+    <Card>
+      <CardContent className="py-5 space-y-2">
+        <div className="flex items-center justify-between">
+          <AgentBadge agent={opinion.agent_role} />
+          <Badge variant="outline">{abstained ? "Abstained" : "Participated"}</Badge>
+        </div>
+        <p className="text-xl font-bold text-gray-900">{displayLabel(opinion.stance)}</p>
+        <p className="text-sm text-gray-500">Confidence: {formatConfidence(opinion.confidence)}</p>
+        <p className="text-xs text-gray-600">{opinion.abstain_reason || opinion.thesis}</p>
+        <p className="text-xs text-gray-400">
+          Evidence: {opinion.supporting_evidence_ids.length} supporting · {opinion.contradicting_evidence_ids.length} contradicting
+        </p>
       </CardContent>
     </Card>
   );

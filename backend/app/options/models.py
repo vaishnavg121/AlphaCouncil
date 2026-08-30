@@ -9,9 +9,8 @@ from __future__ import annotations
 from datetime import date, datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict
 
 
 class OptionType(StrEnum):
@@ -50,11 +49,11 @@ class OptionContract(BaseModel):
     multiplier: int = 100
     tradable: bool = True
     status: OptionContractStatus = OptionContractStatus.ACTIVE
-    size: Optional[Decimal] = None
-    open_interest: Optional[int] = None
-    open_interest_date: Optional[date] = None
-    close_price: Optional[Decimal] = None
-    close_price_date: Optional[date] = None
+    size: Decimal | None = None
+    open_interest: int | None = None
+    open_interest_date: date | None = None
+    close_price: Decimal | None = None
+    close_price_date: date | None = None
 
     @property
     def days_to_expiry(self) -> int:
@@ -93,7 +92,7 @@ class OptionQuote(BaseModel):
         return (self.bid_price + self.ask_price) / Decimal("2")
 
     @property
-    def spread_pct(self) -> Optional[Decimal]:
+    def spread_pct(self) -> Decimal | None:
         mid = self.midpoint
         if mid <= 0:
             return None
@@ -137,16 +136,16 @@ class OptionMarketSnapshot(BaseModel):
 
     contract: OptionContract
     timestamp: datetime
-    quote: Optional[OptionQuote] = None
-    trade: Optional[OptionTrade] = None
-    implied_volatility: Optional[Decimal] = None
-    greeks: Optional[OptionsGreeks] = None
-    underlying_price: Optional[Decimal] = None
+    quote: OptionQuote | None = None
+    trade: OptionTrade | None = None
+    implied_volatility: Decimal | None = None
+    greeks: OptionsGreeks | None = None
+    underlying_price: Decimal | None = None
     data_quality: OptionDataQualityStatus = OptionDataQualityStatus.INSUFFICIENT
     warnings: tuple[str, ...] = ()
 
     @property
-    def reference_price(self) -> Optional[Decimal]:
+    def reference_price(self) -> Decimal | None:
         """Best available reference price for the option."""
         if self.quote and self.quote.is_valid():
             return self.quote.midpoint
@@ -155,14 +154,14 @@ class OptionMarketSnapshot(BaseModel):
         return None
 
     @property
-    def premium_per_contract(self) -> Optional[Decimal]:
+    def premium_per_contract(self) -> Decimal | None:
         """Conservative premium estimate using ask price."""
         if self.quote and self.quote.is_valid():
             return self.quote.ask_price * Decimal(str(self.contract.multiplier))
         return None
 
     @property
-    def max_loss_per_contract(self) -> Optional[Decimal]:
+    def max_loss_per_contract(self) -> Decimal | None:
         """Maximum loss per contract (premium paid for long options)."""
         return self.premium_per_contract
 
@@ -175,7 +174,7 @@ class OptionDataQuality(BaseModel):
     status: OptionDataQualityStatus
     quote_valid: bool = False
     bid_ask_valid: bool = False
-    spread_pct: Optional[Decimal] = None
+    spread_pct: Decimal | None = None
     has_greeks: bool = False
     has_iv: bool = False
     underlying_price_available: bool = False

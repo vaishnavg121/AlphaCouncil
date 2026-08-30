@@ -3,44 +3,37 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from datetime import UTC, datetime
 from decimal import Decimal
 from statistics import median
-from typing import TYPE_CHECKING, Optional, Any
+from typing import TYPE_CHECKING, Any
 
 from app.memory.models import (
-    TradeRecord,
-    TradeOutcome,
-    TradeOutcomeType,
-    ThesisOutcomeEvaluation,
-    ThesisCorrectness,
-    AgentPerformanceRecord,
-    AgentStance,
-    CommitteePerformanceSummary,
-    CalibrationBucket,
-    CalibrationSummary,
-    CalibrationInsight,
-    DisagreementBucket,
-    TrendRegime,
-    ExitReasonCategory,
-    SimilarityComponent,
-    SimilarTradeResult,
-    HistoricalContext,
-    RiskReductionAnalytics,
-    RegimeAnalytics,
-    DisagreementAnalytics,
-    ExitReasonAnalytics,
-    SignalAttribution,
-    PerformanceSummary,
     DEFAULT_CALIBRATION_BUCKETS,
     DEFAULT_SIMILARITY_WEIGHTS,
     MIN_CALIBRATION_SAMPLE_SIZE,
+    CalibrationBucket,
+    CalibrationInsight,
+    CalibrationSummary,
+    CommitteePerformanceSummary,
+    DisagreementAnalytics,
+    DisagreementBucket,
+    ExitReasonAnalytics,
+    ExitReasonCategory,
+    HistoricalContext,
+    PerformanceSummary,
+    RegimeAnalytics,
+    RiskReductionAnalytics,
+    SignalAttribution,
+    SimilarityComponent,
+    SimilarTradeResult,
+    TradeOutcomeType,
+    TradeRecord,
+    TrendRegime,
 )
 from app.risk.models import RiskDecisionType
 
 if TYPE_CHECKING:
     from app.memory.store import TradingMemoryStore
-    from app.committee.models import CommitteeResult
 
 
 class CalibrationEngine:
@@ -48,7 +41,7 @@ class CalibrationEngine:
 
     def __init__(
         self,
-        buckets: Optional[list[tuple[Decimal, Decimal]]] = None,
+        buckets: list[tuple[Decimal, Decimal]] | None = None,
         min_sample_size: int = MIN_CALIBRATION_SAMPLE_SIZE,
     ) -> None:
         self.buckets = buckets or DEFAULT_CALIBRATION_BUCKETS
@@ -169,7 +162,7 @@ class SimilarityEngine:
 
     def __init__(
         self,
-        weights: Optional[dict[str, Decimal]] = None,
+        weights: dict[str, Decimal] | None = None,
     ) -> None:
         self.weights = weights or DEFAULT_SIMILARITY_WEIGHTS.copy()
 
@@ -315,7 +308,7 @@ class SimilarityEngine:
 
         return components
 
-    def _regime_similarity(self, query_regime: Optional[str], trade: TradeRecord) -> Decimal:
+    def _regime_similarity(self, query_regime: str | None, trade: TradeRecord) -> Decimal:
         """Compute regime similarity (ordinal distance)."""
         if not query_regime:
             return Decimal("0.5")  # Neutral if unknown
@@ -336,7 +329,7 @@ class SimilarityEngine:
         max_distance = 4
         return Decimal("1") - Decimal(str(distance)) / Decimal(str(max_distance))
 
-    def _volatility_similarity(self, query_vol_bucket: Optional[str], trade: TradeRecord) -> Decimal:
+    def _volatility_similarity(self, query_vol_bucket: str | None, trade: TradeRecord) -> Decimal:
         """Compute volatility similarity (bucket-based)."""
         if not query_vol_bucket or not trade.mae_pct:
             return Decimal("0.5")
@@ -351,7 +344,7 @@ class SimilarityEngine:
         except (ValueError, TypeError):
             return Decimal("0.5")
 
-    def _momentum_similarity(self, query_momentum: Optional[Decimal], trade: TradeRecord) -> Decimal:
+    def _momentum_similarity(self, query_momentum: Decimal | None, trade: TradeRecord) -> Decimal:
         """Compute momentum similarity."""
         if query_momentum is None or trade.return_pct is None:
             return Decimal("0.5")
@@ -367,7 +360,7 @@ class SimilarityEngine:
         else:
             return Decimal("0.2")
 
-    def _rsi_similarity(self, query_rsi: Optional[Decimal], trade: TradeRecord) -> Decimal:
+    def _rsi_similarity(self, query_rsi: Decimal | None, trade: TradeRecord) -> Decimal:
         """Compute RSI similarity."""
         if query_rsi is None:
             return Decimal("0.5")
@@ -376,7 +369,7 @@ class SimilarityEngine:
         # In real implementation, would store RSI at entry
         return Decimal("0.5")
 
-    def _confidence_similarity(self, query_conf: Optional[Decimal], trade: TradeRecord) -> Decimal:
+    def _confidence_similarity(self, query_conf: Decimal | None, trade: TradeRecord) -> Decimal:
         """Compute committee confidence similarity."""
         if query_conf is None or trade.committee_confidence is None:
             return Decimal("0.5")
@@ -384,7 +377,7 @@ class SimilarityEngine:
         diff = abs(query_conf - trade.committee_confidence)
         return Decimal("1") - diff
 
-    def _disagreement_similarity(self, query_dis: Optional[str], trade: TradeRecord) -> Decimal:
+    def _disagreement_similarity(self, query_dis: str | None, trade: TradeRecord) -> Decimal:
         """Compute disagreement similarity."""
         if not query_dis or not trade.committee_disagreement:
             return Decimal("0.5")
@@ -478,7 +471,7 @@ class HistoricalContextProvider:
             warnings=tuple(warnings),
         )
 
-    def _get_committee_calibration(self) -> Optional[CalibrationSummary]:
+    def _get_committee_calibration(self) -> CalibrationSummary | None:
         """Get latest committee calibration."""
         return self.memory_store.get_latest_calibration()
 
@@ -718,7 +711,7 @@ class AnalyticsService:
         approved = [t for t in trades if t.risk_decision == RiskDecisionType.APPROVED.value]
         reduced = [t for t in trades if t.risk_decision == RiskDecisionType.REDUCED.value]
 
-        def calc_stats(trade_list: list[TradeRecord]) -> tuple[Optional[Decimal], Optional[Decimal], Optional[Decimal], Optional[Decimal]]:
+        def calc_stats(trade_list: list[TradeRecord]) -> tuple[Decimal | None, Decimal | None, Decimal | None, Decimal | None]:
             if not trade_list:
                 return None, None, None, None
             r_multiples = [t.r_multiple for t in trade_list if t.r_multiple is not None]

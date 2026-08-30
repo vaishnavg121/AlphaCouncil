@@ -321,25 +321,180 @@ export type CouncilRunStatus =
   | "FAILED";
 
 export interface CandidateAnalysis {
+  candidate_id: string;
   symbol: string;
   candidate_rank?: number;
   opportunity_score?: number;
   direction?: string;
+  opportunity: OpportunitySnapshot;
+  committee_result_id?: string;
+  committee_result?: CommitteeResultSnapshot;
   committee_decision?: string;
   committee_confidence?: number;
   committee_disagreement?: string;
   agent_opinions: Record<string, unknown>;
+  risk_evaluation_id?: string;
+  risk_evaluation?: RiskEvaluationSnapshot;
   risk_decision?: string;
   risk_reason?: string;
   risk_budget?: number;
   max_position_notional?: number;
+  instrument_plan?: InstrumentPlanSnapshot;
   instrument_type?: string;
   instrument_selection_reason?: string;
   execution_plan_id?: string;
+  execution_plan?: ExecutionPlanSnapshot;
   execution_authorized: boolean;
+  execution_status: string;
+  execution_reason_codes: string[];
   dry_run: boolean;
   status: string;
+  stop_reason_codes: string[];
   error?: string;
+}
+
+export interface OpportunitySnapshot {
+  candidate_id: string;
+  symbol: string;
+  rank: number;
+  direction: string;
+  trend?: number;
+  momentum?: number;
+  rsi?: number;
+  volatility?: number;
+  liquidity?: number;
+  reference_price?: number;
+  status: string;
+  synthetic_demo: boolean;
+  opportunity_score: {
+    total: number;
+    direction: string;
+    trend?: number;
+    momentum?: number;
+    volatility?: number;
+    liquidity?: number;
+  };
+  reasons: string[];
+}
+
+export interface AgentOpinionSnapshot {
+  agent_role: string;
+  symbol: string;
+  stance: string;
+  confidence: number;
+  thesis: string;
+  supporting_evidence_ids: string[];
+  contradicting_evidence_ids: string[];
+  key_risks: string[];
+  invalidation_conditions: string[];
+  uncertainties: string[];
+  abstain_reason?: string;
+}
+
+export interface CommitteeResultSnapshot {
+  candidate_symbol: string;
+  final_opinions: AgentOpinionSnapshot[];
+  decision: {
+    decision: string;
+    direction?: string;
+    committee_score: number;
+    committee_confidence: number;
+    final_disagreement: string;
+    participating_agents: string[];
+    abstained_agents: string[];
+    failed_agents: string[];
+    decision_reasons: string[];
+    unresolved_risks: string[];
+  };
+}
+
+export interface RiskEvaluationSnapshot {
+  symbol: string;
+  decision: string;
+  reason_code: string;
+  constitution_version: string;
+  checks: Array<{
+    rule_name: string;
+    rule_type: "HARD_GATE" | "SOFT_REDUCTION";
+    passed: boolean;
+    reason_code?: string;
+    detail?: string;
+    reduction_factor?: number;
+  }>;
+  risk_budget?: {
+    base_risk_budget: number;
+    confidence_reduction: number;
+    volatility_reduction: number;
+    liquidity_reduction: number;
+    concentration_reduction: number;
+    exposure_reduction: number;
+    correlation_reduction: number;
+    adjusted_risk_budget: number;
+    atr_stop_distance?: number;
+    max_position_notional: number;
+    shares: number;
+    limiting_rule?: string;
+  };
+}
+
+export interface InstrumentPlanSnapshot {
+  plan_id: string;
+  symbol: string;
+  thesis_direction: string;
+  instrument_type: string;
+  no_trade_reason?: string;
+  selection_reasons: string[];
+  warnings: string[];
+  equity_plan?: {
+    symbol: string;
+    side: string;
+    reference_price: number;
+    max_notional: number;
+    planned_notional: number;
+    estimated_quantity: number;
+    risk_budget_used: number;
+    estimated_loss_at_risk_stop: number;
+    selection_score: number;
+    selection_reasons: string[];
+  };
+  option_plan?: {
+    contract_symbol: string;
+    underlying_symbol: string;
+    option_type: string;
+    expiration_date: string;
+    days_to_expiry: number;
+    strike_price: number;
+    bid_price: number;
+    ask_price: number;
+    spread_pct: number;
+    delta?: number;
+    gamma?: number;
+    theta?: number;
+    vega?: number;
+    planned_contracts: number;
+    total_premium: number;
+    maximum_loss: number;
+  };
+}
+
+export interface ExecutionPlanSnapshot {
+  execution_plan_id: string;
+  instrument_plan_id: string;
+  created_at: string;
+  expires_at: string;
+  symbol: string;
+  instrument_type: string;
+  direction: string;
+  side: string;
+  quantity: number;
+  order_type: string;
+  time_in_force: string;
+  limit_price: number;
+  expected_notional: number;
+  risk_budget: number;
+  max_authorized_notional: number;
+  warnings: string[];
+  reason_codes: string[];
 }
 
 export interface CouncilRunEvent {
@@ -370,13 +525,16 @@ export interface SystemHealth {
   status: "healthy" | "degraded" | "unhealthy";
   trading_mode: string;
   paper_trading: boolean;
-  services: {
-    discovery: string;
-    committee: string;
-    risk: string;
-    instrument: string;
-    execution: string;
-    memory: string;
+  services?: {
+    backend?: string;
+    alpaca?: string;
+    nvidia?: string;
+    discovery?: string;
+    committee?: string;
+    risk?: string;
+    instrument?: string;
+    execution?: string;
+    memory?: string;
   };
 }
 
@@ -478,6 +636,9 @@ export const councilApi = {
       body: JSON.stringify(request),
     }),
   getRun: (runId: string) => fetchApi<CouncilRun>(`/council/run/${runId}`),
+  getCurrentRun: () => fetchApi<CouncilRun | null>("/council/current"),
+  getCandidates: (runId: string) =>
+    fetchApi<CandidateAnalysis[]>(`/council/run/${runId}/candidates`),
   getEvents: (runId: string) => fetchApi<CouncilRunEvent[]>(`/council/run/${runId}/events`),
   getStatus: () => fetchApi<SystemHealth>("/council/status"),
 };

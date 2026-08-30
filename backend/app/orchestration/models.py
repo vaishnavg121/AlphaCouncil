@@ -5,9 +5,15 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 from enum import StrEnum
+from typing import Any
 from uuid import uuid4
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from app.committee.models import CommitteeResult
+from app.execution.models import ExecutionPlan, ExecutionReasonCode, ExecutionStatus
+from app.instruments.models import InstrumentPlan
+from app.risk.models import RiskEvaluation
 
 
 class CouncilRunStatus(StrEnum):
@@ -52,40 +58,51 @@ class CouncilRunEvent(BaseModel):
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     run_id: str
     message: str
-    data: dict = Field(default_factory=dict)
+    data: dict[str, Any] = Field(default_factory=dict)
 
 
 class CandidateAnalysis(BaseModel):
     """Analysis result for a single candidate through the pipeline."""
 
+    candidate_id: str = Field(default_factory=lambda: str(uuid4()))
     symbol: str
     candidate_rank: int | None = None
     opportunity_score: Decimal | None = None
     direction: str | None = None
+    opportunity: dict[str, Any] = Field(default_factory=dict)
 
     # M3 Committee
+    committee_result_id: str | None = None
+    committee_result: CommitteeResult | None = None
     committee_decision: str | None = None
     committee_confidence: Decimal | None = None
     committee_disagreement: str | None = None
-    agent_opinions: dict = Field(default_factory=dict)
+    agent_opinions: dict[str, Any] = Field(default_factory=dict)
 
     # M4 Risk
+    risk_evaluation_id: str | None = None
+    risk_evaluation: RiskEvaluation | None = None
     risk_decision: str | None = None
     risk_reason: str | None = None
     risk_budget: Decimal | None = None
     max_position_notional: Decimal | None = None
 
     # M5 Instrument
+    instrument_plan: InstrumentPlan | None = None
     instrument_type: str | None = None
     instrument_selection_reason: str | None = None
 
     # M6 Execution
     execution_plan_id: str | None = None
+    execution_plan: ExecutionPlan | None = None
     execution_authorized: bool = False
+    execution_status: ExecutionStatus = ExecutionStatus.NOT_EXECUTED
+    execution_reason_codes: tuple[ExecutionReasonCode, ...] = ()
     dry_run: bool = True
 
     # Status
     status: str = "PENDING"
+    stop_reason_codes: tuple[str, ...] = ()
     error: str | None = None
 
 
@@ -103,7 +120,7 @@ class CouncilRun(BaseModel):
     max_candidates: int = 10
 
     # Pipeline results
-    candidate_set: dict | None = None  # M2 CandidateSet
+    candidate_set: dict[str, Any] | None = None  # M2 CandidateSet
     candidate_analyses: list[CandidateAnalysis] = Field(default_factory=list)
 
     # Summary
