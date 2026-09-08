@@ -5,6 +5,7 @@ Deterministic calculation of contract quantities within M4 risk budget.
 
 from __future__ import annotations
 
+from datetime import date, datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
@@ -61,11 +62,14 @@ class OptionSizer:
             return None
 
         q = snap.quote
+        exp_date = snap.contract.expiration_date
+        if isinstance(exp_date, date) and not isinstance(exp_date, datetime):
+            exp_date = datetime.combine(exp_date, datetime.min.time())
         return OptionInstrumentPlan(
             contract_symbol=snap.contract.symbol,
             underlying_symbol=snap.contract.underlying_symbol,
             option_type=snap.contract.option_type,
-            expiration_date=snap.contract.expiration_date,
+            expiration_date=exp_date,
             days_to_expiry=snap.contract.days_to_expiry,
             strike_price=snap.contract.strike_price,
             bid_price=q.bid_price,

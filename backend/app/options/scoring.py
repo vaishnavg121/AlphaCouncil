@@ -290,9 +290,8 @@ def select_best_option(
 
     scorer = scorer or OptionScorer()
 
-    best_snap = None
-    best_score = Decimal("-1")
     best_snap: OptionMarketSnapshot | None = None
+    best_score = Decimal("-1")
     best_reasons: tuple[str, ...] = ()
 
     for snap in eligible:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any
 
 from app.committee.models import CommitteeResult
 from app.execution.models import ExecutionResult
@@ -16,6 +16,7 @@ from app.memory.analytics import (
 from app.memory.evaluator import create_post_trade_evaluator
 from app.memory.models import (
     AgentPerformanceRecord,
+    CalibrationSummary,
     ExecutionQualityEvaluation,
     ExitQualityEvaluation,
     HistoricalContext,
@@ -29,10 +30,11 @@ from app.memory.models import (
 )
 from app.memory.store import TradingMemoryStore, create_trading_memory_store
 from app.positions.models import ManagedPosition
+from app.positions.store import PositionStore
 from app.risk.models import RiskEvaluation
 
 if TYPE_CHECKING:
-    from app.positions.models import PositionStore
+    from app.positions.models import PositionStoreRecord
 
 
 class TradingMemoryService:
@@ -54,7 +56,7 @@ class TradingMemoryService:
         self,
         position: ManagedPosition,
         committee_result: CommitteeResult | None = None,
-        trade_thesis: Optional = None,
+        trade_thesis: Any = None,
         risk_evaluation: RiskEvaluation | None = None,
         instrument_plan: InstrumentPlan | None = None,
         entry_execution: ExecutionResult | None = None,
@@ -157,7 +159,7 @@ class TradingMemoryService:
 
     def get_similar_trades(
         self,
-        query_context: dict,
+        query_context: dict[str, Any],
         k: int = 10,
     ) -> list[SimilarTradeResult]:
         """Get similar historical trades."""
@@ -170,25 +172,25 @@ class TradingMemoryService:
 
     def get_committee_calibration(self) -> CalibrationSummary | None:
         """Get committee calibration analysis."""
-        return self.analytics_service._compute_overall_calibration()
+        return self.analytics_service._compute_overall_calibration()  # type: ignore[return-value]
 
     def get_agent_performance(self, agent_name: str) -> list[AgentPerformanceRecord]:
         """Get all performance records for an agent."""
         return self.memory_store.get_agent_history(agent_name)
 
-    def get_disagreement_stats(self) -> tuple:
+    def get_disagreement_stats(self) -> tuple[Any, ...]:
         """Get disagreement analytics."""
         all_trades = self.memory_store.get_all_trade_records()
         completed = [t for t in all_trades if t.is_complete]
         return self.analytics_service._compute_disagreement_analytics(completed)
 
-    def get_exit_reason_stats(self) -> tuple:
+    def get_exit_reason_stats(self) -> tuple[Any, ...]:
         """Get exit reason analytics."""
         all_trades = self.memory_store.get_all_trade_records()
         completed = [t for t in all_trades if t.is_complete]
         return self.analytics_service._compute_exit_reason_analytics(completed)
 
-    def get_historical_context(self, query_context: dict, k: int = 10) -> HistoricalContext:
+    def get_historical_context(self, query_context: dict[str, Any], k: int = 10) -> HistoricalContext:
         """Get historical context for a prospective trade."""
         return self.context_provider.get_context_for_trade(query_context, k)
 

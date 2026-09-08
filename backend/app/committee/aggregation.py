@@ -7,6 +7,7 @@ from decimal import Decimal
 from typing import Protocol
 
 from app.committee.models import (
+    AgentOpinion,
     AgentResult,
     AgentStance,
     CommitteeDecision,
@@ -45,8 +46,8 @@ DISAGREEMENT_PENALTIES = {
 def aggregate_opinions(
     opinions: list[AgentResult],
     weights: dict[str, float] | None = None,
-    disagreement: object | None = None,
-) -> dict:
+    disagreement: DisagreementLike | None = None,
+) -> dict[str, object]:
     """Aggregate agent opinions into committee decision deterministically.
 
     Returns:
@@ -60,9 +61,9 @@ def aggregate_opinions(
     norm_weights = {k: Decimal(str(v / total_weight)) for k, v in weights.items()}
 
     # Filter successful non-abstaining opinions
-    valid_opinions = [
+    valid_opinions: list[AgentResult] = [
         o for o in opinions
-        if hasattr(o, 'status') and o.status == "SUCCESS" and o.opinion
+        if hasattr(o, 'status') and o.status == "SUCCESS" and o.opinion is not None
         and o.opinion.stance != "ABSTAIN"
     ]
 
@@ -107,6 +108,7 @@ def aggregate_opinions(
 
     for result in valid_opinions:
         opinion = result.opinion
+        assert opinion is not None
         weight = norm_weights.get(opinion.agent_role.value, Decimal("0"))
         stance_val = Decimal(str(opinion.stance_value or 0))
         confidence = opinion.confidence
@@ -132,7 +134,7 @@ def aggregate_opinions(
     committee_score = max(Decimal("0"), min(Decimal("100"), base_score))
 
     # Committee confidence
-    avg_confidence = sum((r.opinion.confidence for r in valid_opinions), Decimal("0")) / Decimal(str(len(valid_opinions)))
+    avg_confidence = sum((r.opinion.confidence for r in valid_opinions), Decimal("0")) / Decimal(str(len(valid_opinions)))  # type: ignore[union-attr]
     committee_confidence = avg_confidence * disagreement_penalty
 
     # Determine decision
@@ -159,23 +161,26 @@ def aggregate_opinions(
             no_trade_reason = "MIXED_EVIDENCE"
 
     # Collect evidence IDs
-    supporting_ids = set()
-    contradicting_ids = set()
+    supporting_ids: set[str] = set()
+    contradicting_ids: set[str] = set()
     for r in valid_opinions:
+        assert r.opinion is not None
         supporting_ids.update(r.opinion.supporting_evidence_ids)
         contradicting_ids.update(r.opinion.contradicting_evidence_ids)
 
     # Decision reasons
     reasons = []
     for r in valid_opinions:
+        assert r.opinion is not None
         if r.opinion.stance != "ABSTAIN":
             reasons.append(
                 f"{r.agent_role.value}: {r.opinion.thesis[:100]}"
             )
 
     # Unresolved risks
-    risks = set()
+    risks: set[str] = set()
     for r in valid_opinions:
+        assert r.opinion is not None
         risks.update(r.opinion.key_risks)
 
     # Participating agents
@@ -200,13 +205,13 @@ def aggregate_opinions(
     }
 
 
-def _compute_disagreement_penalty(opinions: list) -> Decimal:
+def _compute_disagreement_penalty(opinions: list[AgentResult]) -> Decimal:
     """Compute penalty factor based on disagreement among opinions."""
-    valid = [o for o in opinions if o.status == "SUCCESS" and o.opinion and o.opinion.stance != "ABSTAIN"]
+    valid = [o for o in opinions if o.status == "SUCCESS" and o.opinion is not None and o.opinion.stance != "ABSTAIN"]
     if len(valid) < 2:
         return Decimal("1.0")
 
-    stances = [o.opinion.stance for o in valid]
+    stances = [o.opinion.stance for o in valid if o.opinion is not None]
     stance_counts = Counter(stances)
 
     # High disagreement if multiple strong opposing views
@@ -238,28 +243,28 @@ class CommitteeAggregator:
         agent_results: list[AgentResult],
         initial_disagreement: DisagreementLike | None = None,
         final_disagreement: DisagreementLike | None = None,
-    ) -> dict:
+    ) -> dict[str, object]:
         """Aggregate agent results into final committee decision."""
         # Use final opinions if available (after rebuttal), else initial
         opinions = agent_results
 
         # Check if we have final opinions (round 2)
         final_opinions = [r for r in agent_results
-                         if r.status == "SUCCESS" and r.opinion
+                         if r.status == "SUCCESS" and r.opinion is not None
                          and r.opinion.round == 2]
 
         if final_opinions:
             # Use final opinions for aggregation
             # But keep track of initial for audit
-            valid_opinions = [r for r in final_opinions if r.opinion.stance != "ABSTAIN"]
+            valid_opinions = [r for r in final_opinions if r.opinion is not None and r.opinion.stance != "ABSTAIN"]
         else:
             valid_opinions = [r for r in agent_results
-                            if r.status == "SUCCESS" and r.opinion
+                            if r.status == "SUCCESS" and r.opinion is not None
                             and r.opinion.stance != "ABSTAIN"]
 
         # Build result
         result = aggregate_opinions(
-            [r for r in agent_results if r.status == "SUCCESS" and r.opinion],
+            [r for r in agent_results if r.status == "SUCCESS" and r.opinion is not None],
             weights=self.weights,
             disagreement=final_disagreement,
         )
@@ -270,7 +275,7 @@ class CommitteeAggregator:
         return result
 
 
-def determine_final_decision(aggregation_result: dict) -> dict:
+def determine_final_decision(aggregation_result: dict[str, object]) -> dict[str, object]:
     """Final decision determination with all edge cases."""
     result = aggregation_result.copy()
 
@@ -281,9 +286,10 @@ def determine_final_decision(aggregation_result: dict) -> dict:
     # Ensure confidence bounds
     if "committee_confidence" in result:
         conf = result["committee_confidence"]
-        if conf > 1:
-            result["committee_confidence"] = 1.0
-        elif conf < 0:
-            result["committee_confidence"] = 0.0
+        if isinstance(conf, (int, float, Decimal)):
+            if conf > 1:
+                result["committee_confidence"] = 1.0
+            elif conf < 0:
+                result["committee_confidence"] = 0.0
 
     return result

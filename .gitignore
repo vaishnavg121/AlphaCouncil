@@ -26,3 +26,7 @@ logs/
 .DS_Store
 Thumbs.db
 .idea/
+
+# Next.js generated agent files
+AGENTS.md
+CLAUDE.md

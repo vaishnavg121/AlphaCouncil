@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from typing import Any, Literal, cast
 
 from app.alpaca.gateway import AlpacaGateway
 from app.committee.models import (
@@ -44,7 +46,6 @@ from app.instruments.models import (
     InstrumentType,
 )
 from app.instruments.selector import InstrumentSelectorService
-from app.market.alpaca_gateway import AlpacaMarketDataGateway
 from app.market.gateway import MarketDataGateway
 from app.market.models import SignalDirection
 from app.memory.service import TradingMemoryService, create_trading_memory_service
@@ -59,16 +60,6 @@ from app.orchestration.models import (
     create_council_run,
 )
 from app.positions.store import PositionStore
-from app.risk.models import (
-    RiskBudget,
-    RiskCheckResult,
-    RiskDecisionType,
-    RiskEvaluation,
-    RiskReasonCode,
-    RiskRuleType,
-)
-from app.risk.service import RiskEvaluationService, create_risk_evaluation_service
-from typing import Any, Callable, Literal, cast
 from app.risk.models import (
     RiskBudget,
     RiskCheckResult,

@@ -554,7 +554,7 @@ class PostTradeEvaluator:
                     direction_correct = None
                     calibration_target = None
                 else:  # NEUTRAL
-                    direction_correct = thesis_eval.correctness is ThesisCorrectness.INCONCLUSIVE
+                    direction_correct = thesis_eval.correctness == ThesisCorrectness.INCONCLUSIVE
                     calibration_target = 1 if direction_correct else 0
 
             # Committee agreement
