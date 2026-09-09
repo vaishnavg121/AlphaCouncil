@@ -252,7 +252,7 @@ class RiskConstitution:
 
     @classmethod
     def all_soft_limit_names(cls) -> tuple[str, ...]:
-        return tuple(l.name for l in cls.SOFT_REDUCTIONS)
+        return tuple(limit.name for limit in cls.SOFT_REDUCTIONS)
 
 
 # Singleton instance for easy access

@@ -51,7 +51,6 @@ class ExitPlanner:
         """Build exit execution plan from decision."""
         # Get fresh market data for the symbol
         quote = self._market.get_latest_quote(position.symbol)
-        asset = self._get_asset_info(position.symbol) if self._alpaca else None
 
         # Validate market hours
         if self._alpaca:
@@ -62,7 +61,6 @@ class ExitPlanner:
 
         # Calculate exit side and order type
         exit_side = self._determine_exit_side(position)
-        position_intent = self._determine_position_intent(position)
 
         # Determine limit price for exit
         limit_price = self._calculate_exit_limit_price(decision, quote, position)

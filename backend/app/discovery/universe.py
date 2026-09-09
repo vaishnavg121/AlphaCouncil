@@ -125,7 +125,6 @@ class AlpacaUniverseProvider(UniverseProvider):
         if hasattr(self._gateway, "_trading_client") and self._gateway._trading_client:
             try:
                 asset = self._gateway._trading_client.get_asset(symbol)
-                asset_class = getattr(asset, "asset_class", "")
                 exchange = getattr(asset, "exchange", "")
                 # Heuristic: ETFs often trade on ARCA
                 if exchange in ("ARCA", "BATS") or "ETF" in str(getattr(asset, "name", "")).upper():

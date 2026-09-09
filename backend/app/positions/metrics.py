@@ -253,7 +253,6 @@ class ExitRulesEngine:
                     decision = ExitDecisionType.EXIT
 
         # Priority 5: Max loss reached (HIGH)
-        max_loss_pct = abs(position.unrealized_pnl_pct)
         # Use risk budget at entry as max allowed loss reference
         if position.risk_budget_at_entry > 0:
             notional = position.current_notional

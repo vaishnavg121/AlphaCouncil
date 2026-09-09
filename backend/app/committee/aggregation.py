@@ -4,20 +4,40 @@ from __future__ import annotations
 
 from collections import Counter
 from decimal import Decimal
-from typing import Protocol
+from typing import Protocol, TypedDict
 
 from app.committee.models import (
-    AgentOpinion,
     AgentResult,
+    AgentRole,
     AgentStance,
     CommitteeDecision,
     DisagreementSeverity,
+    NoTradeReason,
 )
+from app.market.models import SignalDirection
 
 
 class DisagreementLike(Protocol):
     """Protocol for objects with severity attribute."""
     severity: DisagreementSeverity
+
+
+class AggregationResult(TypedDict):
+    """Typed boundary between deterministic aggregation and the service layer."""
+
+    decision: CommitteeDecision
+    direction: SignalDirection | None
+    committee_score: Decimal
+    committee_confidence: Decimal
+    participating_agents: tuple[AgentRole, ...]
+    abstained_agents: tuple[AgentRole, ...]
+    failed_agents: tuple[AgentRole, ...]
+    supporting_evidence_ids: tuple[str, ...]
+    contradicting_evidence_ids: tuple[str, ...]
+    decision_reasons: tuple[str, ...]
+    unresolved_risks: tuple[str, ...]
+    no_trade_reason: NoTradeReason | None
+    final_disagreement: DisagreementSeverity
 
 
 # Agent weights (normalized internally)
@@ -47,7 +67,7 @@ def aggregate_opinions(
     opinions: list[AgentResult],
     weights: dict[str, float] | None = None,
     disagreement: DisagreementLike | None = None,
-) -> dict[str, object]:
+) -> AggregationResult:
     """Aggregate agent opinions into committee decision deterministically.
 
     Returns:
@@ -69,17 +89,21 @@ def aggregate_opinions(
 
     if len(valid_opinions) < MIN_SUCCESSFUL_AGENTS:
         return {
-            "decision": "NO_TRADE",
-            "reason": "INSUFFICIENT_ANALYSIS",
+            "decision": CommitteeDecision.NO_TRADE,
+            "direction": None,
             "committee_score": Decimal("0"),
             "committee_confidence": Decimal("0"),
-            "participating_agents": [],
+            "participating_agents": (),
+            "abstained_agents": (),
+            "failed_agents": tuple(
+                result.agent_role for result in opinions if result.status != "SUCCESS"
+            ),
             "supporting_evidence_ids": tuple(),
             "contradicting_evidence_ids": tuple(),
             "decision_reasons": tuple(),
             "unresolved_risks": tuple(),
-            "no_trade_reason": "INSUFFICIENT_ANALYSIS",
-            "final_disagreement": None,
+            "no_trade_reason": NoTradeReason.INSUFFICIENT_ANALYSIS,
+            "final_disagreement": DisagreementSeverity.NONE,
         }
 
     # Check weight coverage
@@ -89,17 +113,21 @@ def aggregate_opinions(
     )
     if successful_weight < Decimal(str(MIN_SUCCESSFUL_WEIGHT)):
         return {
-            "decision": "NO_TRADE",
-            "reason": "INSUFFICIENT_ANALYSIS",
+            "decision": CommitteeDecision.NO_TRADE,
+            "direction": None,
             "committee_score": Decimal("0"),
             "committee_confidence": Decimal("0"),
-            "participating_agents": [],
+            "participating_agents": (),
+            "abstained_agents": (),
+            "failed_agents": tuple(
+                result.agent_role for result in opinions if result.status != "SUCCESS"
+            ),
             "supporting_evidence_ids": tuple(),
             "contradicting_evidence_ids": tuple(),
             "decision_reasons": tuple(),
             "unresolved_risks": tuple(),
-            "no_trade_reason": "INSUFFICIENT_ANALYSIS",
-            "final_disagreement": None,
+            "no_trade_reason": NoTradeReason.INSUFFICIENT_ANALYSIS,
+            "final_disagreement": DisagreementSeverity.NONE,
         }
 
     # Calculate weighted stance
@@ -134,16 +162,23 @@ def aggregate_opinions(
     committee_score = max(Decimal("0"), min(Decimal("100"), base_score))
 
     # Committee confidence
-    avg_confidence = sum((r.opinion.confidence for r in valid_opinions), Decimal("0")) / Decimal(str(len(valid_opinions)))  # type: ignore[union-attr]
+    confidence_values = (
+        result.opinion.confidence
+        for result in valid_opinions
+        if result.opinion is not None
+    )
+    avg_confidence = sum(confidence_values, Decimal("0")) / Decimal(
+        str(len(valid_opinions))
+    )
     committee_confidence = avg_confidence * disagreement_penalty
 
     # Determine decision
     if committee_score >= 60:
         decision = CommitteeDecision.PROPOSE_LONG
-        direction = "BULLISH"
+        direction = SignalDirection.BULLISH
     elif committee_score <= 40:
         decision = CommitteeDecision.PROPOSE_SHORT
-        direction = "BEARISH"
+        direction = SignalDirection.BEARISH
     else:
         decision = CommitteeDecision.NO_TRADE
         direction = None
@@ -152,13 +187,13 @@ def aggregate_opinions(
     no_trade_reason = None
     if decision == CommitteeDecision.NO_TRADE:
         if len(valid_opinions) < MIN_SUCCESSFUL_AGENTS:
-            no_trade_reason = "INSUFFICIENT_ANALYSIS"
+            no_trade_reason = NoTradeReason.INSUFFICIENT_ANALYSIS
         elif disagreement and disagreement.severity in ("HIGH", "MEDIUM"):
-            no_trade_reason = "HIGH_DISAGREEMENT"
+            no_trade_reason = NoTradeReason.HIGH_DISAGREEMENT
         elif committee_confidence < Decimal("0.5"):
-            no_trade_reason = "LOW_CONVICTION"
+            no_trade_reason = NoTradeReason.LOW_CONVICTION
         else:
-            no_trade_reason = "MIXED_EVIDENCE"
+            no_trade_reason = NoTradeReason.MIXED_EVIDENCE
 
     # Collect evidence IDs
     supporting_ids: set[str] = set()
@@ -184,9 +219,15 @@ def aggregate_opinions(
         risks.update(r.opinion.key_risks)
 
     # Participating agents
-    participating = [r.agent_role for r in valid_opinions]
-    abstained = [r.agent_role for r in opinions
-                 if hasattr(r, 'opinion') and r.opinion and r.opinion.stance == "ABSTAIN"]
+    participating = tuple(result.agent_role for result in valid_opinions)
+    abstained = tuple(
+        result.agent_role
+        for result in opinions
+        if result.opinion is not None and result.opinion.stance == "ABSTAIN"
+    )
+    failed = tuple(
+        result.agent_role for result in opinions if result.status != "SUCCESS"
+    )
 
     return {
         "decision": decision,
@@ -195,13 +236,13 @@ def aggregate_opinions(
         "committee_confidence": committee_confidence,
         "participating_agents": participating,
         "abstained_agents": abstained,
-        "failed_agents": [],
+        "failed_agents": failed,
         "supporting_evidence_ids": tuple(supporting_ids),
         "contradicting_evidence_ids": tuple(contradicting_ids),
         "decision_reasons": tuple(reasons),
         "unresolved_risks": tuple(risks),
         "no_trade_reason": no_trade_reason,
-        "final_disagreement": None,  # Will be filled in by caller
+        "final_disagreement": DisagreementSeverity.NONE,
     }
 
 
@@ -243,25 +284,8 @@ class CommitteeAggregator:
         agent_results: list[AgentResult],
         initial_disagreement: DisagreementLike | None = None,
         final_disagreement: DisagreementLike | None = None,
-    ) -> dict[str, object]:
+    ) -> AggregationResult:
         """Aggregate agent results into final committee decision."""
-        # Use final opinions if available (after rebuttal), else initial
-        opinions = agent_results
-
-        # Check if we have final opinions (round 2)
-        final_opinions = [r for r in agent_results
-                         if r.status == "SUCCESS" and r.opinion is not None
-                         and r.opinion.round == 2]
-
-        if final_opinions:
-            # Use final opinions for aggregation
-            # But keep track of initial for audit
-            valid_opinions = [r for r in final_opinions if r.opinion is not None and r.opinion.stance != "ABSTAIN"]
-        else:
-            valid_opinions = [r for r in agent_results
-                            if r.status == "SUCCESS" and r.opinion is not None
-                            and r.opinion.stance != "ABSTAIN"]
-
         # Build result
         result = aggregate_opinions(
             [r for r in agent_results if r.status == "SUCCESS" and r.opinion is not None],
@@ -275,7 +299,7 @@ class CommitteeAggregator:
         return result
 
 
-def determine_final_decision(aggregation_result: dict[str, object]) -> dict[str, object]:
+def determine_final_decision(aggregation_result: AggregationResult) -> AggregationResult:
     """Final decision determination with all edge cases."""
     result = aggregation_result.copy()
 
@@ -284,12 +308,10 @@ def determine_final_decision(aggregation_result: dict[str, object]) -> dict[str,
         pass  # Keep NO_TRADE
 
     # Ensure confidence bounds
-    if "committee_confidence" in result:
-        conf = result["committee_confidence"]
-        if isinstance(conf, (int, float, Decimal)):
-            if conf > 1:
-                result["committee_confidence"] = 1.0
-            elif conf < 0:
-                result["committee_confidence"] = 0.0
+    conf = result["committee_confidence"]
+    if conf > 1:
+        result["committee_confidence"] = Decimal("1")
+    elif conf < 0:
+        result["committee_confidence"] = Decimal("0")
 
     return result

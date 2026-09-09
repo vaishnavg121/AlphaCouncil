@@ -251,7 +251,7 @@ async def evaluate_position(
     position_id: str,
     request: EvaluatePositionRequest,
     service: TradingMemoryService = Depends(get_memory_service_dep),
-) -> dict:
+) -> dict[str, object]:
     """Evaluate a closed position (idempotent).
 
     Creates or updates the trade record for the given position.
@@ -278,7 +278,7 @@ async def evaluate_position(
 # =============================================================================
 
 @router.get("/health")
-async def memory_health() -> dict:
+async def memory_health() -> dict[str, object]:
     """Memory service health check."""
     service = get_memory_service()
     total_trades = len(service.memory_store.get_all_trade_records())

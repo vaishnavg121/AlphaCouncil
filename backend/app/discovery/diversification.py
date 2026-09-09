@@ -67,8 +67,6 @@ def apply_directional_balance(
 
     bullish = [c for c in candidates if c.score.direction == SignalDirection.BULLISH]
     bearish = [c for c in candidates if c.score.direction == SignalDirection.BEARISH]
-    mixed = [c for c in candidates if c.score.direction in (SignalDirection.MIXED, SignalDirection.NEUTRAL)]
-
     result = []
 
     # Add minimum required from each direction

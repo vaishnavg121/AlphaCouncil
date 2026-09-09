@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import UTC, datetime
 
 from app.committee.agents.bear import BearAgent
@@ -12,12 +13,13 @@ from app.committee.aggregation import CommitteeAggregator
 from app.committee.disagreement import detect_disagreement, generate_challenges, run_rebuttal_round
 from app.committee.evidence import build_evidence_packet
 from app.committee.models import (
+    AgentOpinion,
     AgentResult,
     AgentStatus,
     CommitteeDecision,
     CommitteeDecisionModel,
     CommitteeResult,
-    DisagreementSeverity,
+    EvidencePacket,
     TradeThesis,
 )
 from app.core.config import Settings
@@ -71,35 +73,28 @@ class InvestmentCommitteeService:
         initial_results = self._run_independent_round(evidence)
         total_llm_calls += sum(r.attempts for r in initial_results)
 
-        # Extract successful opinions
-        initial_opinions = [r.opinion for r in initial_results
-                           if r.status == AgentStatus.SUCCESS and r.opinion]
+        initial_opinions = self._successful_opinions(initial_results)
 
         # Step 3: Detect disagreement
-        disagreement = detect_disagreement([r.opinion for r in initial_results
-                                           if r.status == AgentStatus.SUCCESS and r.opinion])
+        disagreement = detect_disagreement(initial_opinions)
 
         # Step 4: Rebuttal round if needed
-        final_opinions = []
+        final_opinions: list[AgentOpinion]
         if self._enable_rebuttal and disagreement.challenge_required:
-            challenges = generate_challenges(
-                [r.opinion for r in initial_results if r.status == AgentStatus.SUCCESS and r.opinion],
-                disagreement
-            )
+            challenges = generate_challenges(initial_opinions, disagreement)
 
             # Map agent role to agent instance
             agents_map = {agent.role.value: agent for agent in self._agent_list}
-            initial_opinion_list = [r.opinion for r in initial_results if r.status == AgentStatus.SUCCESS and r.opinion]
             rebuttal_opinions = run_rebuttal_round(
                 agents=agents_map,
                 evidence=evidence,
                 challenges=challenges,
-                initial_opinions=initial_opinion_list,
+                initial_opinions=initial_opinions,
             )
 
             # Merge rebuttal results - use rebuttal if available, else initial
             final_opinions = []
-            for init_op in initial_opinion_list:
+            for init_op in initial_opinions:
                 rebuttal = next((r for r in rebuttal_opinions if r.agent_role == init_op.agent_role), None)
                 if rebuttal and rebuttal.round == 2:
                     final_opinions.append(rebuttal)
@@ -109,7 +104,7 @@ class InvestmentCommitteeService:
             # Rebuttal opinions are AgentOpinion objects, not AgentResult
             # We can't track their attempts directly, but we can estimate
         else:
-            final_opinions = [r.opinion for r in initial_results if r.status == AgentStatus.SUCCESS and r.opinion]
+            final_opinions = initial_opinions
 
         # Step 5: Final disagreement detection
         final_disagreement = detect_disagreement(final_opinions)
@@ -137,25 +132,28 @@ class InvestmentCommitteeService:
         # Build decision model
         decision = CommitteeDecisionModel(
             symbol=candidate.symbol,
-            decision=CommitteeDecision(aggregation_result["decision"]),
+            decision=aggregation_result["decision"],
             direction=aggregation_result.get("direction"),
             committee_score=aggregation_result["committee_score"],
             committee_confidence=aggregation_result["committee_confidence"],
             initial_disagreement=disagreement.severity,
-            final_disagreement=DisagreementSeverity(aggregation_result.get("final_disagreement", "NONE")),
-            participating_agents=tuple(aggregation_result["participating_agents"]),
-            abstained_agents=tuple(aggregation_result.get("abstained_agents", [])),
-            failed_agents=tuple(aggregation_result.get("failed_agents", [])),
+            final_disagreement=aggregation_result["final_disagreement"],
+            participating_agents=aggregation_result["participating_agents"],
+            abstained_agents=aggregation_result["abstained_agents"],
+            failed_agents=aggregation_result["failed_agents"],
             supporting_evidence_ids=aggregation_result["supporting_evidence_ids"],
             contradicting_evidence_ids=aggregation_result["contradicting_evidence_ids"],
             decision_reasons=aggregation_result["decision_reasons"],
             unresolved_risks=aggregation_result["unresolved_risks"],
-            no_trade_reason=aggregation_result.get("no_trade_reason"),
+            no_trade_reason=aggregation_result["no_trade_reason"],
         )
 
         # Build TradeThesis if applicable
         trade_thesis = None
-        if decision.decision in ("PROPOSE_LONG", "PROPOSE_SHORT"):
+        if decision.decision in (
+            CommitteeDecision.PROPOSE_LONG,
+            CommitteeDecision.PROPOSE_SHORT,
+        ):
             trade_thesis = TradeThesis(
                 symbol=candidate.symbol,
                 proposed_direction=SignalDirection(decision.direction) if decision.direction else SignalDirection.BULLISH,
@@ -175,10 +173,10 @@ class InvestmentCommitteeService:
         return CommitteeResult(
             candidate_symbol=candidate.symbol,
             evidence_packet=build_evidence_packet(candidate),
-            initial_opinions=tuple([r.opinion for r in initial_results if r.status == AgentStatus.SUCCESS and r.opinion]),
+            initial_opinions=tuple(initial_opinions),
             disagreement_report=disagreement,
             challenges=tuple([]),  # TODO: track challenges
-            final_opinions=tuple([o for o in final_opinions]),
+            final_opinions=tuple(final_opinions),
             decision=decision,
             trade_thesis=trade_thesis,
             generated_at=datetime.now(UTC),
@@ -187,15 +185,27 @@ class InvestmentCommitteeService:
             model=self._settings.llm_model,
         )
 
-    def _run_independent_round(self, evidence) -> list:
+    @staticmethod
+    def _successful_opinions(results: Sequence[AgentResult]) -> list[AgentOpinion]:
+        return [
+            result.opinion
+            for result in results
+            if result.status == AgentStatus.SUCCESS and result.opinion is not None
+        ]
+
+    def _run_independent_round(self, evidence: EvidencePacket) -> list[AgentResult]:
         """Run independent Round 1 analysis for all agents sequentially."""
-        results = []
+        results: list[AgentResult] = []
         for agent in self._agent_list:
             result = agent.analyze(evidence)
             results.append(result)
         return results
 
-    def _synthesize_thesis(self, decision, opinions):
+    def _synthesize_thesis(
+        self,
+        decision: CommitteeDecisionModel,
+        opinions: Sequence[AgentOpinion],
+    ) -> str:
         """Synthesize concise thesis from decision and opinions."""
         supporting = [o for o in opinions if o.is_bullish]
         opposing = [o for o in opinions if o.is_bearish]
@@ -208,16 +218,22 @@ class InvestmentCommitteeService:
 
         return "; ".join(parts) if parts else "Committee consensus"
 
-    def _collect_invalidation_conditions(self, opinions):
+    def _collect_invalidation_conditions(
+        self,
+        opinions: Sequence[AgentOpinion],
+    ) -> tuple[str, ...]:
         """Collect all invalidation conditions from opinions."""
-        conditions = set()
+        conditions: set[str] = set()
         for o in opinions:
             conditions.update(o.invalidation_conditions)
         return tuple(conditions)
 
-    def evaluate_candidate_set(self, candidates) -> list:
+    def evaluate_candidate_set(
+        self,
+        candidates: Sequence[Candidate],
+    ) -> list[CommitteeResult]:
         """Evaluate multiple candidates (respecting max_candidates limit)."""
-        results = []
+        results: list[CommitteeResult] = []
         for candidate in candidates[:self._max_candidates]:
             results.append(self.evaluate_candidate(candidate))
         return results

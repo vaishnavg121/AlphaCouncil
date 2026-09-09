@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from app.instruments.models import (
     EquityInstrumentPlan,
     EquitySide,
@@ -14,7 +16,7 @@ from app.instruments.stock import EquityPlanner
 
 
 # Lazy import to avoid circular dependency
-def __getattr__(name: str):
+def __getattr__(name: str) -> Any:
     if name == "InstrumentSelectorService":
         from app.instruments.selector import InstrumentSelectorService
         return InstrumentSelectorService

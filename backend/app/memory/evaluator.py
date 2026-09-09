@@ -554,8 +554,10 @@ class PostTradeEvaluator:
                     direction_correct = None
                     calibration_target = None
                 else:  # NEUTRAL
-                    direction_correct = thesis_eval.correctness == ThesisCorrectness.INCONCLUSIVE
-                    calibration_target = 1 if direction_correct else 0
+                    # This branch only runs for conclusive outcomes, so a neutral
+                    # stance did not predict the realized direction.
+                    direction_correct = False
+                    calibration_target = 0
 
             # Committee agreement
             committee_agreement = None

@@ -17,9 +17,6 @@ from app.market.indicators import (
     avg_volume,
     classify_trend,
     distance_from_sma_pct,
-    drawdown,
-    ema,
-    momentum,
     realized_volatility,
     returns,
     rsi,
@@ -134,13 +131,8 @@ class BulkScreener:
         ret_5d = returns(closes, 5)
         ret_20d = returns(closes, 20)
 
-        mom_5d = momentum(closes, 5)
-        mom_20d = momentum(closes, 20)
-
         sma_20 = sma(closes, 20)
         sma_50 = sma(closes, 50)
-        ema_20 = ema(closes, 20)
-        ema_50 = ema(closes, 50)
 
         dist_sma20 = distance_from_sma_pct(current_price, sma_20)
         dist_sma50 = distance_from_sma_pct(current_price, sma_50)
@@ -157,8 +149,6 @@ class BulkScreener:
         avg_vol_20 = avg_volume(volumes, 20)
         vol_ratio = volume_ratio(volumes[-1] if volumes else 0, avg_vol_20)
         vol_zscore = volume_zscore(volumes, volumes[-1] if volumes else 0, 20)
-
-        cur_drawdown = drawdown(closes)
 
         trend_short = classify_trend(current_price, sma_20, sma_50, dist_sma20, dist_sma50)
         trend_medium = classify_trend(current_price, sma_50, sma_20, dist_sma50, dist_sma20)

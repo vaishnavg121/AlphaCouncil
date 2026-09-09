@@ -4,13 +4,16 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Any
 
 from alpaca.data.historical import OptionHistoricalDataClient
 from alpaca.data.models import OptionsSnapshot
-from alpaca.data.requests import OptionChainRequest, OptionSnapshotRequest
+from alpaca.data.requests import OptionSnapshotRequest
 from alpaca.trading.client import TradingClient
-from alpaca.trading.models import ContractType
+from alpaca.trading.enums import ContractType
 from alpaca.trading.models import OptionContract as AlpacaOptionContract
+from alpaca.trading.models import OptionContractsResponse
+from alpaca.trading.requests import GetOptionContractsRequest
 
 from app.alpaca.client import create_trading_client
 from app.core.config import Settings
@@ -54,16 +57,29 @@ class OptionDataGateway:
         contract_type: ContractType | None = None,
     ) -> list[OptionContract]:
         """Retrieve option contracts for an underlying symbol."""
-        req = OptionChainRequest(
-            underlying_symbol=underlying_symbol,
+        req = GetOptionContractsRequest(
+            underlying_symbols=[underlying_symbol],
             expiration_date_gte=expiration_date_gte,
             expiration_date_lte=expiration_date_lte,
-            strike_price_gte=strike_price_gte,
-            strike_price_lte=strike_price_lte,
+            strike_price_gte=str(strike_price_gte) if strike_price_gte is not None else None,
+            strike_price_lte=str(strike_price_lte) if strike_price_lte is not None else None,
             type=contract_type,
         )
-        response = self._historical.get_option_chain(req)
-        return [self._normalize_contract(c) for c in response.option_contracts]
+        response = self._trading.get_option_contracts(req)
+        raw_contracts: list[AlpacaOptionContract] | list[dict[str, Any]]
+        if isinstance(response, OptionContractsResponse):
+            raw_contracts = response.option_contracts or []
+        else:
+            raw_value = response.get("option_contracts", [])
+            raw_contracts = raw_value if isinstance(raw_value, list) else []
+
+        contracts = [
+            contract
+            if isinstance(contract, AlpacaOptionContract)
+            else AlpacaOptionContract(**contract)
+            for contract in raw_contracts
+        ]
+        return [self._normalize_contract(contract) for contract in contracts]
 
     def get_option_snapshots(
         self, symbols: list[str]
@@ -146,7 +162,6 @@ class OptionDataGateway:
         greeks = None
         if snapshot.greeks:
             g = snapshot.greeks
-            # type: ignore[attr-defined] - Alpaca Greeks has same fields
             greeks = OptionsGreeks(
                 delta=Decimal(str(g.delta)),
                 gamma=Decimal(str(g.gamma)),
@@ -233,7 +248,9 @@ class OptionDataGateway:
         """Assess option data quality."""
         warnings = []
         quote_valid = quote is not None and quote.is_valid()
-        bid_ask_valid = quote_valid and quote.spread >= Decimal("0")
+        bid_ask_valid = (
+            quote is not None and quote.is_valid() and quote.spread >= Decimal("0")
+        )
 
         has_greeks = greeks is not None
         has_iv = iv is not None and iv > 0

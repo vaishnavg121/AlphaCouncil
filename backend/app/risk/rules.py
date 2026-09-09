@@ -174,10 +174,6 @@ class RiskRulesEngine:
                 detail="Reference price missing or invalid",
             )
 
-        # Check data quality from thesis evidence packet
-        dq_status = ctx.trade_thesis.committee_decision  # This doesn't have dq directly
-        # Check from evidence packet if available
-        evidence = ctx.trade_thesis.committee_decision  # TradeThesis has committee_decision
         # The evidence packet is in CommitteeResult, not directly in TradeThesis
         # For now, we check the reference price validity
 

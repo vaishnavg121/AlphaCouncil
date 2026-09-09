@@ -8,6 +8,7 @@ import httpx
 from pydantic import ValidationError
 
 from app.committee.models import (
+    AgentChallenge,
     AgentOpinion,
     AgentResult,
     AgentRole,
@@ -73,7 +74,10 @@ class CommitteeAgent(ABC):
         if not self._settings.llm_model:
             raise RuntimeError("LLM_MODEL is not configured")
 
-        api_key = self._settings.nvidia_api_key.get_secret_value()
+        api_key_setting = self._settings.nvidia_api_key
+        if api_key_setting is None:
+            raise RuntimeError("NVIDIA_API_KEY is not configured")
+        api_key = api_key_setting.get_secret_value()
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
@@ -125,7 +129,7 @@ class CommitteeAgent(ABC):
         try:
             data = json.loads(content)
         except json.JSONDecodeError as e:
-            raise ValueError(f"Invalid JSON in LLM response: {e}")
+            raise ValueError(f"Invalid JSON in LLM response: {e}") from e
 
         # Validate required fields
         required_fields = ["agent_role", "symbol", "stance", "confidence", "thesis"]
@@ -141,7 +145,7 @@ class CommitteeAgent(ABC):
         try:
             opinion = AgentOpinion(**data)
         except ValidationError as e:
-            raise ValueError(f"Invalid opinion schema: {e}")
+            raise ValueError(f"Invalid opinion schema: {e}") from e
 
         return opinion
 
@@ -227,8 +231,8 @@ class CommitteeAgent(ABC):
     def rebut(
         self,
         evidence: EvidencePacket,
-        challenge,
-        prior_opinion,
+        challenge: AgentChallenge,
+        prior_opinion: AgentOpinion,
     ) -> AgentResult:
         """Run rebuttal round."""
         from time import perf_counter

@@ -123,14 +123,11 @@ class InstrumentSelectorService:
 
         # Build equity alternative
         equity_plan = self._build_equity_plan(trade_thesis, risk_evaluation, market_state)
-        equity_eligible = equity_plan is not None
 
         # Build option alternative
         option_plan, option_rejections = self._build_option_plan(
             trade_thesis, risk_evaluation, market_state
         )
-        option_eligible = option_plan is not None
-
         # Compare and select
         final_plan = self._select_instrument(
             trade_thesis,
@@ -306,13 +303,12 @@ class InstrumentSelectorService:
             return None, rejection_summary
 
         # Build option plan
-        warnings = tuple(filter_stats.get("warnings", [])) if isinstance(filter_stats, dict) else ()
         option_plan = self._option_sizer.calculate_plan(
             best_snap,
             risk_budget,
             score,
             reasons,
-            warnings=warnings,
+            warnings=(),
         )
 
         return option_plan, rejection_summary
@@ -366,6 +362,8 @@ class InstrumentSelectorService:
             )
 
         # Both eligible - compare scores
+        assert equity_plan is not None
+        assert option_plan is not None
         equity_score = equity_plan.selection_score
         option_score = option_plan.selection_score
 

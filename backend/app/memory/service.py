@@ -34,7 +34,7 @@ from app.positions.store import PositionStore
 from app.risk.models import RiskEvaluation
 
 if TYPE_CHECKING:
-    from app.positions.models import PositionStoreRecord
+    pass
 
 
 class TradingMemoryService:
@@ -170,9 +170,9 @@ class TradingMemoryService:
         """Get comprehensive performance summary."""
         return self.analytics_service.get_performance_summary()
 
-    def get_committee_calibration(self) -> CalibrationSummary | None:
+    def get_committee_calibration(self) -> CalibrationSummary:
         """Get committee calibration analysis."""
-        return self.analytics_service._compute_overall_calibration()  # type: ignore[return-value]
+        return self.analytics_service._compute_overall_calibration()
 
     def get_agent_performance(self, agent_name: str) -> list[AgentPerformanceRecord]:
         """Get all performance records for an agent."""

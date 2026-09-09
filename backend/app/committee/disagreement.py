@@ -10,6 +10,7 @@ from app.committee.models import (
     AgentRole,
     DisagreementReport,
     DisagreementSeverity,
+    EvidencePacket,
 )
 
 # Disagreement threshold for triggering rebuttal
@@ -73,8 +74,6 @@ def detect_disagreement(opinions: list[AgentOpinion]) -> DisagreementReport:
         conflicting.extend(bearish_agents)
 
     # Check for conflicting evidence citations
-    all_supporting: set[str] = set()
-    all_contradicting: set[str] = set()
     conflicting_evidence: set[str] = set()
 
     # We'd need access to all opinions to check this fully
@@ -135,9 +134,6 @@ def generate_challenges(opinions: list[AgentOpinion], disagreement: Disagreement
 
     if not disagreement.challenge_required:
         return challenges
-
-    # Group opinions by role for easy lookup
-    opinions_by_role = {o.agent_role: o for o in opinions}
 
     # Identify bullish and bearish agents
     bullish = [o for o in opinions if o.is_bullish]
@@ -232,7 +228,7 @@ def _create_challenge(
 
 def run_rebuttal_round(
     agents: dict[str, CommitteeAgent],
-    evidence: object,
+    evidence: EvidencePacket,
     challenges: list[AgentChallenge],
     initial_opinions: list[AgentOpinion],
 ) -> list[AgentOpinion]:

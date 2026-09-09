@@ -419,7 +419,6 @@ class HistoricalContextProvider:
         # Compute aggregate statistics
         outcomes = [s.outcome_type for s in similar if s.outcome_type]
         wins = sum(1 for o in outcomes if o == TradeOutcomeType.WIN)
-        losses = sum(1 for o in outcomes if o == TradeOutcomeType.LOSS)
         total = len(outcomes)
 
         win_rate = Decimal(str(wins)) / Decimal(str(total)) if total > 0 else None
@@ -490,8 +489,6 @@ class HistoricalContextProvider:
             abstained = [r for r in records if r.abstained]
 
             directional_correct = [r for r in participated if r.direction_correct is True]
-            directional_incorrect = [r for r in participated if r.direction_correct is False]
-
             n_participated = Decimal(str(len(participated))) if participated else Decimal("0")
             stats[agent] = {
                 "trades_evaluated": len(records),
@@ -649,7 +646,6 @@ class AnalyticsService:
         for category, category_trades in reason_map.items():
             r_multiples = [t.r_multiple for t in category_trades if t.r_multiple is not None]
             returns = [t.return_pct for t in category_trades if t.return_pct is not None]
-            mfe_captures = [t.mfe_pct for t in category_trades if t.mfe_pct is not None]
             durations = [t.holding_duration_seconds for t in category_trades if t.holding_duration_seconds is not None]
 
             results.append(ExitReasonAnalytics(
@@ -762,8 +758,6 @@ class AnalyticsService:
             abstained = [r for r in records if r.abstained]
 
             dir_correct = [r for r in participated if r.direction_correct is True]
-            dir_incorrect = [r for r in participated if r.direction_correct is False]
-
             # Brier score
             predictions = [(r.confidence, r.calibration_target == 1) for r in participated if r.calibration_target is not None]
             brier = None

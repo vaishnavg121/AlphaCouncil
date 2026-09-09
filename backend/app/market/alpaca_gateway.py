@@ -101,7 +101,9 @@ class AlpacaMarketDataGateway(MarketDataGateway):
                 ask_size=int(quote.ask_size) if quote.ask_size is not None else None,
             )
         except Exception as e:
-            raise MarketDataError(f"Failed to get latest quote for {symbol}: {e}", original=e)
+            raise MarketDataError(
+                f"Failed to get latest quote for {symbol}: {e}", original=e
+            ) from e
 
     def get_latest_trade(self, symbol: str) -> TradeSnapshot:
         """Get the latest trade for a symbol."""
@@ -117,7 +119,9 @@ class AlpacaMarketDataGateway(MarketDataGateway):
                 size=int(trade.size) if trade.size is not None else None,
             )
         except Exception as e:
-            raise MarketDataError(f"Failed to get latest trade for {symbol}: {e}", original=e)
+            raise MarketDataError(
+                f"Failed to get latest trade for {symbol}: {e}", original=e
+            ) from e
 
     def get_snapshot(self, symbol: str) -> MarketSnapshot:
         """Get an aggregated market snapshot for a symbol."""
@@ -188,7 +192,9 @@ class AlpacaMarketDataGateway(MarketDataGateway):
                 previous_daily_bar=previous_daily_bar,
             )
         except Exception as e:
-            raise MarketDataError(f"Failed to get snapshot for {symbol}: {e}", original=e)
+            raise MarketDataError(
+                f"Failed to get snapshot for {symbol}: {e}", original=e
+            ) from e
 
     def get_bars(
         self,
@@ -237,7 +243,9 @@ class AlpacaMarketDataGateway(MarketDataGateway):
 
             return bars
         except Exception as e:
-            raise MarketDataError(f"Failed to get bars for {symbol}: {e}", original=e)
+            raise MarketDataError(
+                f"Failed to get bars for {symbol}: {e}", original=e
+            ) from e
 
     def get_daily_bars(
         self,
